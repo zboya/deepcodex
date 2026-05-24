@@ -1,0 +1,59 @@
+version: 2
+
+project_name: gocode
+
+builds:
+  - main: ./cmd/gocode
+    binary: gocode
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - formats:
+      - tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+
+nfpms:
+  - id: gocode
+    package_name: gocode
+    vendor: AlleyBo55
+    homepage: https://github.com/AlleyBo55/gocode
+    maintainer: AlleyBo55
+    description: High-performance AI agent harness runtime in Go
+    license: MIT
+    formats:
+      - deb
+      - rpm
+    bindir: /usr/local/bin
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+
+# brews:
+#   - repository:
+#       owner: AlleyBo55
+#       name: homebrew-gocode
+#     homepage: https://github.com/AlleyBo55/gocode
+#     description: High-performance AI agent harness runtime in Go
+#     license: MIT
+#     install: |
+#       bin.install "gocode"

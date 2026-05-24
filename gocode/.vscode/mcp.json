@@ -1,0 +1,9 @@
+{
+  "servers": {
+    "gocode": {
+      "type": "stdio",
+      "command": "gocode",
+      "args": ["mcp-serve", "--transport", "stdio"]
+    }
+  }
+}
