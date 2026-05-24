@@ -17,8 +17,6 @@ function App() {
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
 
-  const [collapsed, setCollapsed] = useState(false);
-
   const handleNewChat = () => {
     setActiveChatId(null);
   };
@@ -31,8 +29,7 @@ function App() {
   return (
     <div id="App" className="app-root">
       <Sidebar
-        collapsed={collapsed}
-        onToggleCollapse={() => setCollapsed((v) => !v)}
+        collapsed={false}
         projects={projects}
         chats={chats}
         activeProjectId={activeProjectId}

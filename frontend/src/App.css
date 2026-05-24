@@ -58,36 +58,12 @@ textarea {
   width: 64px;
 }
 
-.sidebar-header {
+/* 主菜单 */
+.side-nav {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 12px 8px 12px;
-  -webkit-app-region: drag;
-}
-
-/* 自定义红黄绿（视觉标识，原生 macOS 已有） */
-.window-traffic {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  flex-direction: column;
+  padding: 64px 8px 8px 8px; /* 顶部留出 macOS 原生红黄绿空间 */
   -webkit-app-region: no-drag;
-}
-
-.window-traffic .dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  display: inline-block;
-}
-.dot-close {
-  background: #ff5f57;
-}
-.dot-min {
-  background: #febc2e;
-}
-.dot-max {
-  background: #28c840;
 }
 
 .icon-btn {
@@ -104,35 +80,6 @@ textarea {
 .icon-btn:hover {
   background: rgba(255, 255, 255, 0.06);
   color: #fff;
-}
-
-.nav-arrows {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  margin-left: 4px;
-}
-
-.badge-btn {
-  margin-left: auto;
-  background: #2f7cff;
-  color: #fff;
-  font-size: 12px;
-  padding: 4px 12px;
-  border-radius: 999px;
-  -webkit-app-region: no-drag;
-}
-
-.badge-btn:hover {
-  background: #1f6cff;
-}
-
-/* 主菜单 */
-.side-nav {
-  display: flex;
-  flex-direction: column;
-  padding: 4px 8px 8px 8px;
-  -webkit-app-region: no-drag;
 }
 
 .nav-item {
@@ -209,8 +156,6 @@ textarea {
 /* 折叠态：隐藏文字 */
 .sidebar.collapsed .nav-item span,
 .sidebar.collapsed .side-section-title,
-.sidebar.collapsed .badge-btn,
-.sidebar.collapsed .nav-arrows,
 .sidebar.collapsed .empty-hint,
 .sidebar.collapsed .chat-title {
   display: none;

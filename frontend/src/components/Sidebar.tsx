@@ -7,15 +7,11 @@ import {
   Smartphone,
   FolderClosed,
   Settings,
-  ChevronLeft,
-  ChevronRight,
-  SidebarIcon,
 } from './Icons';
 import { ChatItem, Project } from '../types';
 
 interface SidebarProps {
   collapsed: boolean;
-  onToggleCollapse: () => void;
   projects: Project[];
   chats: ChatItem[];
   activeProjectId: string | null;
@@ -27,7 +23,6 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({
   collapsed,
-  onToggleCollapse,
   projects,
   chats,
   activeProjectId,
@@ -38,29 +33,6 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   return (
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
-      {/* 顶部窗口控制 + 折叠 + 更新按钮 */}
-      <div className="sidebar-header">
-        <div className="window-traffic">
-          <span className="dot dot-close" />
-          <span className="dot dot-min" />
-          <span className="dot dot-max" />
-        </div>
-        <button className="icon-btn" title="折叠侧边栏" onClick={onToggleCollapse}>
-          <SidebarIcon size={16} />
-        </button>
-        <div className="nav-arrows">
-          <button className="icon-btn" title="后退">
-            <ChevronLeft size={16} />
-          </button>
-          <button className="icon-btn" title="前进">
-            <ChevronRight size={16} />
-          </button>
-        </div>
-        <button className="badge-btn" title="检查更新">
-          更新
-        </button>
-      </div>
-
       {/* 主菜单 */}
       <nav className="side-nav">
         <button className="nav-item" onClick={onNewChat}>
