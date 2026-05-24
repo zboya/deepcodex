@@ -1,4 +1,4 @@
-module deepcodex2
+module deepcodex
 
 go 1.23.0
 
