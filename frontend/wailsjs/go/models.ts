@@ -18,31 +18,10 @@ export namespace apiclient {
 	        this.source = source["source"];
 	    }
 	}
-	export class ProviderTemplate {
+	export class ProviderConfig {
 	    name: string;
 	    kind: string;
-	    displayName: string;
-	    baseUrl: string;
-	    models: string[];
-	    defaultModel: string;
-	    authEnv?: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new ProviderTemplate(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.name = source["name"];
-	        this.kind = source["kind"];
-	        this.displayName = source["displayName"];
-	        this.baseUrl = source["baseUrl"];
-	        this.models = source["models"];
-	        this.defaultModel = source["defaultModel"];
-	        this.authEnv = source["authEnv"];
-	    }
-	}
-	export class ProviderConfig {
+	    baseUrl?: string;
 	    apiKey?: string;
 	    authToken?: string;
 	    models?: string[];
@@ -67,6 +46,30 @@ export namespace apiclient {
 	        this.enabled = source["enabled"];
 	        this.createdAt = source["createdAt"];
 	        this.updatedAt = source["updatedAt"];
+	    }
+	}
+	export class ProviderTemplate {
+	    name: string;
+	    kind: string;
+	    displayName: string;
+	    baseUrl: string;
+	    models: string[];
+	    defaultModel: string;
+	    authEnv?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProviderTemplate(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.kind = source["kind"];
+	        this.displayName = source["displayName"];
+	        this.baseUrl = source["baseUrl"];
+	        this.models = source["models"];
+	        this.defaultModel = source["defaultModel"];
+	        this.authEnv = source["authEnv"];
 	    }
 	}
 	export class ProvidersConfig {
