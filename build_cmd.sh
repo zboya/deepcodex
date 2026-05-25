@@ -1,0 +1,1 @@
+go build -o build/bin/deepcodex agent/cmd/main.go

@@ -1,3 +1,5 @@
+.vscode
+.gocode
 build/bin
 node_modules
 frontend/dist
