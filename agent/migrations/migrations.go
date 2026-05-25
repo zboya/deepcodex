@@ -23,7 +23,7 @@ type completedState struct {
 // Runner manages and executes migrations, tracking completed ones in a JSON file.
 type Runner struct {
 	migrations []Migration
-	baseDir    string // e.g. ~/.gocode or a test temp dir
+	baseDir    string // e.g. ~/.deepcodex or a test temp dir
 }
 
 // NewRunner creates a Runner that persists state under baseDir.
@@ -181,8 +181,8 @@ func migrateUpdateModelAliases(baseDir string) error {
 	}
 
 	aliases := map[string]string{
-		"claude-3":   "claude-3.5-sonnet",
-		"gpt4":       "gpt-4o",
+		"claude-3":    "claude-3.5-sonnet",
+		"gpt4":        "gpt-4o",
 		"gpt-4-turbo": "gpt-4o",
 	}
 

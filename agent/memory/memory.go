@@ -23,7 +23,7 @@ type Store struct {
 // NewStore creates a new memory store at the given path.
 func NewStore(path string) *Store {
 	if path == "" {
-		path = filepath.Join(".gocode", "memory.json")
+		path = filepath.Join(".deepcodex", "memory.json")
 	}
 	return &Store{path: path}
 }

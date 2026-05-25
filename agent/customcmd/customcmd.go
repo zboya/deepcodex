@@ -1,6 +1,6 @@
 // Package customcmd discovers and loads user-defined slash commands from markdown
-// files. Commands are loaded from two directories: project-level (.gocode/commands/)
-// and user-level (~/.gocode/commands/). Project commands override user commands
+// files. Commands are loaded from two directories: project-level (.deepcodex/commands/)
+// and user-level (~/.deepcodex/commands/). Project commands override user commands
 // when names collide.
 //
 // Each .md file becomes a slash command whose name is the filename without the
@@ -34,8 +34,8 @@ type ArgDef struct {
 
 // Loader discovers and loads custom commands from project and user directories.
 type Loader struct {
-	projectDir string // .gocode/commands/
-	userDir    string // ~/.gocode/commands/
+	projectDir string // .deepcodex/commands/
+	userDir    string // ~/.deepcodex/commands/
 }
 
 // NewLoader creates a Loader with default directories.
@@ -43,8 +43,8 @@ type Loader struct {
 func NewLoader() *Loader {
 	home, _ := os.UserHomeDir()
 	return &Loader{
-		projectDir: filepath.Join(".gocode", "commands"),
-		userDir:    filepath.Join(home, ".gocode", "commands"),
+		projectDir: filepath.Join(".deepcodex", "commands"),
+		userDir:    filepath.Join(home, ".deepcodex", "commands"),
 	}
 }
 

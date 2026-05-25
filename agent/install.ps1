@@ -1,10 +1,10 @@
-# gocode installer for Windows
-# Usage: irm https://raw.githubusercontent.com/AlleyBo55/gocode/main/install.ps1 | iex
+# deepcodex installer for Windows
+# Usage: irm https://raw.githubusercontent.com/AlleyBo55/deepcodex/main/install.ps1 | iex
 
 $ErrorActionPreference = "Stop"
 
-$repo = "AlleyBo55/gocode"
-$binary = "gocode"
+$repo = "AlleyBo55/deepcodex"
+$binary = "deepcodex"
 
 # Detect architecture
 $arch = if ([Environment]::Is64BitOperatingSystem) {
@@ -28,11 +28,11 @@ $filename = "${binary}_${version}_windows_${arch}.zip"
 $url = "https://github.com/$repo/releases/download/v$version/$filename"
 
 # Download
-$tmpDir = Join-Path $env:TEMP "gocode-install"
+$tmpDir = Join-Path $env:TEMP "deepcodex-install"
 New-Item -ItemType Directory -Force -Path $tmpDir | Out-Null
 $zipPath = Join-Path $tmpDir $filename
 
-Write-Host "Downloading gocode v$version for windows/$arch..." -ForegroundColor Cyan
+Write-Host "Downloading deepcodex v$version for windows/$arch..." -ForegroundColor Cyan
 Invoke-WebRequest -Uri $url -OutFile $zipPath
 
 # Extract
@@ -51,7 +51,7 @@ if (Test-Path $exePath) {
     if ($found) {
         Copy-Item $found.FullName (Join-Path $installDir "$binary.exe") -Force
     } else {
-        Write-Error "Could not find gocode.exe in the downloaded archive"
+        Write-Error "Could not find deepcodex.exe in the downloaded archive"
         exit 1
     }
 }
@@ -60,6 +60,6 @@ if (Test-Path $exePath) {
 Remove-Item -Recurse -Force $tmpDir
 
 Write-Host ""
-Write-Host "gocode v$version installed to $installDir\$binary.exe" -ForegroundColor Green
+Write-Host "deepcodex v$version installed to $installDir\$binary.exe" -ForegroundColor Green
 Write-Host ""
-Write-Host "Run 'gocode --help' to get started." -ForegroundColor Cyan
+Write-Host "Run 'deepcodex --help' to get started." -ForegroundColor Cyan

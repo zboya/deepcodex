@@ -1,10 +1,10 @@
 version: 2
 
-project_name: gocode
+project_name: deepcodex
 
 builds:
-  - main: ./cmd/gocode
-    binary: gocode
+  - main: ./cmd/deepcodex
+    binary: deepcodex
     ldflags:
       - -s -w -X main.version={{.Version}}
     goos:
@@ -25,8 +25,8 @@ archives:
           - zip
 
 nfpms:
-  - id: gocode
-    package_name: gocode
+  - id: deepcodex
+    package_name: deepcodex
     vendor: AlleyBo55
     homepage: https://github.com/zboya/deepcodex/agent
     maintainer: AlleyBo55
@@ -51,9 +51,9 @@ changelog:
 # brews:
 #   - repository:
 #       owner: AlleyBo55
-#       name: homebrew-gocode
+#       name: homebrew-deepcodex
 #     homepage: https://github.com/zboya/deepcodex/agent
 #     description: High-performance AI agent harness runtime in Go
 #     license: MIT
 #     install: |
-#       bin.install "gocode"
+#       bin.install "deepcodex"

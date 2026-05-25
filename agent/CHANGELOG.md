@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to gocode are documented here.
+All notable changes to deepcodex are documented here.
 
 ---
 
@@ -45,7 +45,7 @@ All notable changes to gocode are documented here.
 ### Cron/Scheduled Tasks (`internal/cron/`)
 - 5-field cron expression parser (minute/hour/dom/month/dow)
 - `ScheduleCronTool` registered in tool registry — agents can create/delete/list cron jobs
-- Persistent schedules in `.gocode/cron.json`
+- Persistent schedules in `.deepcodex/cron.json`
 - Background goroutine timer-based execution
 - Human-readable cron descriptions via `cronToHuman()`
 - Scheduler wired into startup (loads persisted schedules) and shutdown (cleanup)
@@ -58,7 +58,7 @@ All notable changes to gocode are documented here.
 - Permission bridge: forwards tool permission prompts to IDE for approval
 - Message bridge: streams agent responses to IDE in real-time
 - Port retry: tries 5 sequential ports if default is in use
-- `gocode bridge --port <port>` CLI command
+- `deepcodex bridge --port <port>` CLI command
 
 ### Swarm Coordination (`internal/swarm/`)
 - SwarmManager with agent discovery registry
@@ -75,14 +75,14 @@ All notable changes to gocode are documented here.
 
 ### Output Styles (`internal/outputstyles/`)
 - 4 built-in styles: concise, verbose, markdown, minimal
-- User-defined styles from `.gocode/output-styles/` directory
-- `--output-style` CLI flag on `gocode chat`
+- User-defined styles from `.deepcodex/output-styles/` directory
+- `--output-style` CLI flag on `deepcodex chat`
 - `/output-style [style]` slash command for mid-session switching
 - Style validation against registry
 
 ### Migrations System (`internal/migrations/`)
 - Automatic config/data format upgrades on startup
-- Migration runner with version tracking in `.gocode/version.json`
+- Migration runner with version tracking in `.deepcodex/version.json`
 - Sequential execution of pending migrations
 - Backup creation before migration execution
 
@@ -94,7 +94,7 @@ All notable changes to gocode are documented here.
 - Stats tracking: DEBUGGING, CHAOS, SNARK (0-100)
 
 ### New CLI Commands & Flags
-- `gocode bridge --port <port>` — start WebSocket bridge server
+- `deepcodex bridge --port <port>` — start WebSocket bridge server
 - `--output-style <style>` — set output style (concise, verbose, markdown, minimal)
 - `--vim` — enable vim keybindings
 
@@ -121,14 +121,14 @@ All notable changes to gocode are documented here.
 - Full model list with aliases in [docs/supported-models.md](docs/supported-models.md)
 
 ### Provider Launch Profiles
-- `gocode profile init` — create default profile
-- `gocode profile auto --goal coding` — auto-detect best provider from env vars
-- `gocode profile recommend --goal latency` — preview without saving
-- `gocode profile show` — show current profile
+- `deepcodex profile init` — create default profile
+- `deepcodex profile auto --goal coding` — auto-detect best provider from env vars
+- `deepcodex profile recommend --goal latency` — preview without saving
+- `deepcodex profile show` — show current profile
 - Goal-based model selection: `--goal coding`, `--goal latency`, `--goal balanced`
 
 ### Persistent Memory
-- Cross-session memory system persisted to `.gocode/memory.json`
+- Cross-session memory system persisted to `.deepcodex/memory.json`
 - `/memory set key value` — store a memory
 - `/memory get key` — retrieve a memory
 - `/memory list` — show all memories
@@ -136,15 +136,15 @@ All notable changes to gocode are documented here.
 - Memories injected into system prompt automatically
 
 ### Task Management
-- Persistent task tracking in `.gocode/tasks.json`
+- Persistent task tracking in `.deepcodex/tasks.json`
 - `/tasks add Fix the auth bug` — create a task
 - `/tasks list` — show all tasks
 - `/tasks done 1` — mark task complete
 
 ### Runtime Hardening
-- `gocode smoke` — quick runtime smoke test (version, registries, skills, plugins)
-- `gocode hardening` — security audit (file permissions, API key exposure in shell history)
-- `gocode doctor` expanded to check all 10 provider env vars + Codex auth + profile
+- `deepcodex smoke` — quick runtime smoke test (version, registries, skills, plugins)
+- `deepcodex hardening` — security audit (file permissions, API key exposure in shell history)
+- `deepcodex doctor` expanded to check all 10 provider env vars + Codex auth + profile
 
 ### New Tools
 - WebFetchTool — fetch URL content (10KB max, no API key)
@@ -173,8 +173,8 @@ All notable changes to gocode are documented here.
 - Split panels: chat on left, git diff viewer on right (Ctrl+D toggle)
 - Tab to switch between Build mode (full access) and Plan mode (read-only)
 - 4 built-in themes: `golang`, `monokai`, `dracula`, `nord`
-- Custom themes via `.gocode/theme.json`
-- Custom keybinds via `.gocode/keybinds.json`
+- Custom themes via `.deepcodex/theme.json`
+- Custom keybinds via `.deepcodex/keybinds.json`
 - REPL is default; `--tui` flag for TUI mode
 
 ### Multi-Agent Orchestration
@@ -202,14 +202,14 @@ All notable changes to gocode are documented here.
 `/help` `/exit` `/clear` `/compact` `/cost` `/model` `/skill` `/plan` `/init-deep` `/diff` `/undo` `/redo` `/status` `/review` `/permissions` `/doctor` `/connect` `/share` `/commit` `/memory` `/tasks`
 
 ### CLI Commands
-- `gocode serve` — headless HTTP REST API server
-- `gocode stats` — usage statistics across sessions
-- `gocode export/import` — session import/export
-- `gocode pr` — GitHub PR creation via `gh` CLI
-- `gocode github` — GitHub issue listing via `gh` CLI
-- `gocode auth generate/list/delete` — remote access key management
-- `gocode config` — show runtime configuration
-- `gocode plugin list/install/uninstall` — plugin management
+- `deepcodex serve` — headless HTTP REST API server
+- `deepcodex stats` — usage statistics across sessions
+- `deepcodex export/import` — session import/export
+- `deepcodex pr` — GitHub PR creation via `gh` CLI
+- `deepcodex github` — GitHub issue listing via `gh` CLI
+- `deepcodex auth generate/list/delete` — remote access key management
+- `deepcodex config` — show runtime configuration
+- `deepcodex plugin list/install/uninstall` — plugin management
 
 ### Plugin System
 - Hook pipeline with pre/post tool-use interception
@@ -223,7 +223,7 @@ All notable changes to gocode are documented here.
 ### Skills System
 - 8 built-in skills with community attributions
 - `--skill` flag and `/skill` command for mid-session switching
-- Custom skills via `.gocode/skills/` JSON files
+- Custom skills via `.deepcodex/skills/` JSON files
 
 ### Auto-Format
 - gofmt/goimports for Go
@@ -247,8 +247,8 @@ All notable changes to gocode are documented here.
 - `--model` flag for provider selection
 
 ### Agent Mode
-- Interactive REPL (`gocode chat`)
-- One-shot mode (`gocode prompt`)
+- Interactive REPL (`deepcodex chat`)
+- One-shot mode (`deepcodex prompt`)
 - Multi-turn tool-use loops
 - Permission system (workspace-write, full-access)
 
@@ -264,18 +264,18 @@ All notable changes to gocode are documented here.
 - Session store with JSON serialization
 
 ### CLI Commands
-- `gocode chat` — interactive agent
-- `gocode prompt` — one-shot agent
-- `gocode mcp-serve` — MCP server
-- `gocode summary` — workspace summary
-- `gocode manifest` — port manifest
-- `gocode subsystems` — module listing
-- `gocode commands` — command registry
-- `gocode tools` — tool registry
-- `gocode route` — prompt routing
-- `gocode bootstrap` — session bootstrapping
-- `gocode turn-loop` — turn loop execution
-- `gocode setup-report` — environment setup report
+- `deepcodex chat` — interactive agent
+- `deepcodex prompt` — one-shot agent
+- `deepcodex mcp-serve` — MCP server
+- `deepcodex summary` — workspace summary
+- `deepcodex manifest` — port manifest
+- `deepcodex subsystems` — module listing
+- `deepcodex commands` — command registry
+- `deepcodex tools` — tool registry
+- `deepcodex route` — prompt routing
+- `deepcodex bootstrap` — session bootstrapping
+- `deepcodex turn-loop` — turn loop execution
+- `deepcodex setup-report` — environment setup report
 
 ### Installation
 - `go install` for all platforms

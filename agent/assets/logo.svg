@@ -7,7 +7,7 @@
   </defs>
   <rect width="400" height="120" rx="16" fill="url(#bg)"/>
   <text x="200" y="58" font-family="system-ui,-apple-system,sans-serif" font-size="48" font-weight="700" fill="white" text-anchor="middle" letter-spacing="-1">
-    gocode
+    deepcodex
   </text>
   <text x="200" y="90" font-family="system-ui,-apple-system,sans-serif" font-size="16" fill="rgba(255,255,255,0.85)" text-anchor="middle" letter-spacing="3">
     AGENT HARNESS RUNTIME

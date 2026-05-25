@@ -26,10 +26,10 @@ jobs:
         run: go test ./...
 
       - name: Cross-compile (linux/amd64)
-        run: GOOS=linux GOARCH=amd64 go build -o /dev/null ./cmd/gocode/
+        run: GOOS=linux GOARCH=amd64 go build -o /dev/null ./cmd/deepcodex/
 
       - name: Cross-compile (darwin/amd64)
-        run: GOOS=darwin GOARCH=amd64 go build -o /dev/null ./cmd/gocode/
+        run: GOOS=darwin GOARCH=amd64 go build -o /dev/null ./cmd/deepcodex/
 
       - name: Cross-compile (windows/amd64)
-        run: GOOS=windows GOARCH=amd64 go build -o /dev/null ./cmd/gocode/
+        run: GOOS=windows GOARCH=amd64 go build -o /dev/null ./cmd/deepcodex/

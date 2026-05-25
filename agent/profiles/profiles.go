@@ -17,7 +17,7 @@ type Profile struct {
 
 // DefaultProfilePath returns the default profile file path.
 func DefaultProfilePath() string {
-	return filepath.Join(".gocode", "profile.json")
+	return filepath.Join(".deepcodex", "profile.json")
 }
 
 // LoadProfile reads a profile from disk.

@@ -1,7 +1,7 @@
 {
   "mcpServers": {
-    "gocode": {
-      "command": "gocode",
+    "deepcodex": {
+      "command": "deepcodex",
       "args": ["mcp-serve", "--transport", "stdio"]
     }
   }

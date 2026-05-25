@@ -2,7 +2,7 @@
 
 [← Back to README](../README.md)
 
-All 23 gocode commands.
+All 23 deepcodex commands.
 
 ---
 
@@ -13,7 +13,7 @@ All 23 gocode commands.
 | `chat` | Start interactive agent chat session |
 | `prompt [text]` | Run a single prompt through the agent and exit |
 
-### `gocode chat`
+### `deepcodex chat`
 
 ```
 Flags:
@@ -27,7 +27,7 @@ Flags:
   --bridge                Start WebSocket bridge server alongside REPL
 ```
 
-### `gocode prompt`
+### `deepcodex prompt`
 
 ```
 Flags:
@@ -65,7 +65,7 @@ Flags:
   --port int   WebSocket server port (default 19836)
 ```
 
-Establishes a bidirectional WebSocket connection between gocode and IDEs (VS Code, JetBrains). Supports session management, permission forwarding, and real-time response streaming.
+Establishes a bidirectional WebSocket connection between deepcodex and IDEs (VS Code, JetBrains). Supports session management, permission forwarding, and real-time response streaming.
 
 ---
 

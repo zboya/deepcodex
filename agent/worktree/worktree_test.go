@@ -79,7 +79,7 @@ func TestLockUnlock(t *testing.T) {
 	}
 
 	// Lock file should exist.
-	lockPath := filepath.Join(dir, ".gocode.lock")
+	lockPath := filepath.Join(dir, ".deepcodex.lock")
 	if _, statErr := os.Stat(lockPath); os.IsNotExist(statErr) {
 		t.Error("expected lock file to exist")
 	}

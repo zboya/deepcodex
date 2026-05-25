@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.png" alt="gocode — the fastest open-source AI coding agent. One binary. Any model." width="500" />
+  <img src="assets/logo.png" alt="deepcodex — the fastest open-source AI coding agent. One binary. Any model." width="500" />
 </p>
 
 <p align="center">
@@ -14,39 +14,39 @@
   <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="MIT License" />
 </p>
 
-<h1 align="center">gocode — The Open-Source Claude Code Alternative. Built in Go. Works With Any Model.</h1>
+<h1 align="center">deepcodex — The Open-Source Claude Code Alternative. Built in Go. Works With Any Model.</h1>
 
 <p align="center">
-  <img src="assets/screen1.png" alt="gocode terminal screenshot" width="700" />
+  <img src="assets/screen1.png" alt="deepcodex terminal screenshot" width="700" />
 </p>
 
 <h3 align="center">One binary. Zero dependencies. 200+ models. A team of agents.<br/>Inspired by the best terminal AI agents. Built from scratch in Go. Faster than everything else.</h3>
 
 <p align="center">
-  <code>go install github.com/zboya/deepcodex/agent/cmd/gocode@latest</code>
+  <code>go install github.com/zboya/deepcodex/agent/cmd/deepcodex@latest</code>
 </p>
 
 ---
 
-## Why gocode
+## Why deepcodex
 
 We loved what Claude Code did for terminal-based AI coding. But we wanted something faster, model-agnostic, and dependency-free.
 
-So we built gocode from scratch in Go — inspired by the best ideas in terminal AI agents, but with a completely original architecture. Every subsystem was designed and written from the ground up: the provider layer, the agent runtime, the tool executor, the orchestrator, the memory system, the planning engine. All of it.
+So we built deepcodex from scratch in Go — inspired by the best ideas in terminal AI agents, but with a completely original architecture. Every subsystem was designed and written from the ground up: the provider layer, the agent runtime, the tool executor, the orchestrator, the memory system, the planning engine. All of it.
 
 The result: a single 12MB binary that starts in under 10 milliseconds, works with 200+ models across 11 providers, and ships with capabilities that most agents don't even attempt.
 
 ---
 
-## What Makes gocode Different
+## What Makes deepcodex Different
 
 ### Any Model. Your Choice.
 
-Most terminal agents lock you into one provider. gocode works with all of them. Claude, GPT, Gemini, Grok, DeepSeek, Mistral, Llama, local models — set one env var and go. Or use OpenRouter and access every model with a single API key.
+Most terminal agents lock you into one provider. deepcodex works with all of them. Claude, GPT, Gemini, Grok, DeepSeek, Mistral, Llama, local models — set one env var and go. Or use OpenRouter and access every model with a single API key.
 
 ### A Team of Agents, Not Just One
 
-gocode doesn't run a single agent loop. It runs an orchestrator with specialist sub-agents that plan, coordinate, and delegate to each other. Up to 5 concurrent background agents, each with their own model preference and tool permissions.
+deepcodex doesn't run a single agent loop. It runs an orchestrator with specialist sub-agents that plan, coordinate, and delegate to each other. Up to 5 concurrent background agents, each with their own model preference and tool permissions.
 
 ### Memory That Persists — and Dreams
 
@@ -84,10 +84,10 @@ Full terminal UI. Multi-agent orchestration. Model fallback. 21 slash commands. 
 
 | Mode | What It Does | How You Use It |
 |------|-------------|----------------|
-| **Agent Mode (REPL)** | Line-based chat. Default mode. | `gocode chat` |
-| **Agent Mode (TUI)** | Full terminal UI with split panels, diff viewer, themes. | `gocode chat --tui` |
-| **API Server Mode** | Headless HTTP REST API for remote clients. | `gocode serve` |
-| **MCP Server Mode** | Plug into Cursor, Kiro, VS Code, Antigravity, or Claude Desktop. | `gocode mcp-serve` |
+| **Agent Mode (REPL)** | Line-based chat. Default mode. | `deepcodex chat` |
+| **Agent Mode (TUI)** | Full terminal UI with split panels, diff viewer, themes. | `deepcodex chat --tui` |
+| **API Server Mode** | Headless HTTP REST API for remote clients. | `deepcodex serve` |
+| **MCP Server Mode** | Plug into Cursor, Kiro, VS Code, Antigravity, or Claude Desktop. | `deepcodex mcp-serve` |
 
 ---
 
@@ -113,12 +113,12 @@ Every model. Every provider. One binary. No lock-in.
 | **Local (Ollama/LM Studio)** | Run any model on your machine | `OPENAI_BASE_URL` |
 
 ```bash
-gocode chat --model sonnet          # Claude
-gocode chat --model gpt5            # GPT-5.4
-gocode chat --model deepseek        # DeepSeek
-gocode chat --model groq-llama      # Llama on Groq (800 tok/s)
-gocode chat --model llama           # Ollama local
-gocode chat --goal coding           # auto-pick the best coding model
+deepcodex chat --model sonnet          # Claude
+deepcodex chat --model gpt5            # GPT-5.4
+deepcodex chat --model deepseek        # DeepSeek
+deepcodex chat --model groq-llama      # Llama on Groq (800 tok/s)
+deepcodex chat --model llama           # Ollama local
+deepcodex chat --goal coding           # auto-pick the best coding model
 ```
 
 ### One Key. Every Model.
@@ -128,13 +128,13 @@ Don't want to manage 11 API keys? Set one OpenRouter key and access every model 
 ```bash
 export OPENROUTER_API_KEY=sk-or-your-key
 
-gocode chat --model openai/gpt-4o                         # GPT-4o
-gocode chat --model anthropic/claude-sonnet-4-20250514    # Claude Sonnet
-gocode chat --model google/gemini-2.5-pro-preview         # Gemini
-gocode chat --model x-ai/grok-3                           # Grok
-gocode chat --model deepseek/deepseek-chat                # DeepSeek
-gocode chat --model meta-llama/llama-3.3-70b-instruct     # Llama
-gocode chat --model mistralai/mistral-large-latest        # Mistral
+deepcodex chat --model openai/gpt-4o                         # GPT-4o
+deepcodex chat --model anthropic/claude-sonnet-4-20250514    # Claude Sonnet
+deepcodex chat --model google/gemini-2.5-pro-preview         # Gemini
+deepcodex chat --model x-ai/grok-3                           # Grok
+deepcodex chat --model deepseek/deepseek-chat                # DeepSeek
+deepcodex chat --model meta-llama/llama-3.3-70b-instruct     # Llama
+deepcodex chat --model mistralai/mistral-large-latest        # Mistral
 ```
 
 One binary. One key. Every model on the planet. Get your key at [openrouter.ai/keys](https://openrouter.ai/keys).
@@ -178,8 +178,8 @@ One binary. One key. Every model on the planet. Get your key at [openrouter.ai/k
 ### Terminal UI
 - Full bubbletea TUI with split panels (chat + git diff viewer)
 - 4 built-in themes: golang, monokai, dracula, nord
-- Custom themes via `.gocode/theme.json`
-- Custom keybinds via `.gocode/keybinds.json`
+- Custom themes via `.deepcodex/theme.json`
+- Custom keybinds via `.deepcodex/keybinds.json`
 - Vim keybindings — full normal/insert/visual modes with motions, operators, text objects
 
 ### MCP Server & Client
@@ -190,15 +190,15 @@ One binary. One key. Every model on the planet. Get your key at [openrouter.ai/k
 
 ### Skills System
 - 16 built-in skills (see below)
-- Custom skills via `.gocode/skills/` JSON files
+- Custom skills via `.deepcodex/skills/` JSON files
 - Mid-session skill switching with `/skill`
 - Skills with MCP server configs auto-start child processes
 
 ### Scheduling & Automation
 - Cron scheduler with 5-field expressions
 - Background agent execution on schedule
-- Persistent schedules in `.gocode/cron.json`
-- GitHub Actions integration (`gocode-action` for PR review and issue implementation)
+- Persistent schedules in `.deepcodex/cron.json`
+- GitHub Actions integration (`deepcodex-action` for PR review and issue implementation)
 
 ### Session & Git
 - Git checkpoints with `/undo N` and per-session refs
@@ -227,9 +227,9 @@ One binary. One key. Every model on the planet. Get your key at [openrouter.ai/k
 One flag, and your agent becomes a specialist.
 
 ```bash
-gocode chat --skill golang-best-practices    # writes Go like a senior engineer
-gocode chat --skill nothing-design           # designs like Teenage Engineering
-gocode chat --skill loop                     # autonomous keep-going mode
+deepcodex chat --skill golang-best-practices    # writes Go like a senior engineer
+deepcodex chat --skill nothing-design           # designs like Teenage Engineering
+deepcodex chat --skill loop                     # autonomous keep-going mode
 ```
 
 ### 16 Built-in Skills
@@ -253,7 +253,7 @@ gocode chat --skill loop                     # autonomous keep-going mode
 | `skillify` | Meta-skill — capture conversation patterns as reusable skill JSON |
 | `batch` | Parallel batch processing across multiple files or worktree agents |
 
-Create your own — drop a JSON file in `.gocode/skills/`.
+Create your own — drop a JSON file in `.deepcodex/skills/`.
 
 ### Community Skills — Standing on the Shoulders of Giants
 
@@ -273,19 +273,19 @@ Create your own — drop a JSON file in `.gocode/skills/`.
 ### One-Line Install (macOS / Linux)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/AlleyBo55/gocode/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/AlleyBo55/deepcodex/main/install.sh | bash
 ```
 
 ### One-Line Install (Windows PowerShell)
 
 ```powershell
-irm https://raw.githubusercontent.com/AlleyBo55/gocode/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/AlleyBo55/deepcodex/main/install.ps1 | iex
 ```
 
 ### Go Install (all platforms, requires Go 1.21+)
 
 ```bash
-go install github.com/zboya/deepcodex/agent/cmd/gocode@latest
+go install github.com/zboya/deepcodex/agent/cmd/deepcodex@latest
 ```
 
 ### Download Binary Manually
@@ -305,27 +305,27 @@ Grab the binary for your platform from [GitHub Releases](https://github.com/zboy
 
 ```bash
 # Debian/Ubuntu
-curl -fsSL https://github.com/zboya/deepcodex/agent/releases/latest/download/gocode_amd64.deb -o gocode.deb
-sudo dpkg -i gocode.deb
+curl -fsSL https://github.com/zboya/deepcodex/agent/releases/latest/download/gocode_amd64.deb -o deepcodex.deb
+sudo dpkg -i deepcodex.deb
 
 # Fedora/RHEL
-curl -fsSL https://github.com/zboya/deepcodex/agent/releases/latest/download/gocode_amd64.rpm -o gocode.rpm
-sudo rpm -i gocode.rpm
+curl -fsSL https://github.com/zboya/deepcodex/agent/releases/latest/download/gocode_amd64.rpm -o deepcodex.rpm
+sudo rpm -i deepcodex.rpm
 ```
 
 ### Build from Source
 
 ```bash
 git clone https://github.com/zboya/deepcodex/agent.git
-cd gocode
-go build -o gocode ./cmd/gocode/
-sudo mv gocode /usr/local/bin/
+cd deepcodex
+go build -o deepcodex ./cmd/deepcodex/
+sudo mv deepcodex /usr/local/bin/
 ```
 
 ### Verify
 
 ```bash
-gocode --version
+deepcodex --version
 ```
 
 ---
@@ -334,16 +334,16 @@ gocode --version
 
 ```bash
 # 1. Install
-go install github.com/zboya/deepcodex/agent/cmd/gocode@latest
+go install github.com/zboya/deepcodex/agent/cmd/deepcodex@latest
 
 # 2. Set your API key (pick any provider)
 export ANTHROPIC_API_KEY=sk-ant-...
 
 # 3. Chat
-gocode chat
+deepcodex chat
 
 # Or one-shot
-gocode prompt "find all TODO comments in this project"
+deepcodex prompt "find all TODO comments in this project"
 ```
 
 No Python. No Node. No virtual environments. One binary, one env var, go.
@@ -355,8 +355,8 @@ No Python. No Node. No virtual environments. One binary, one env var, go.
 26 internal packages. Clean interfaces. Zero external runtime dependencies. Goroutines and channels for native concurrency. `go:embed` for compiled-in registries. Atomic file writes for zero-corruption session persistence.
 
 ```
-gocode/
-├── cmd/gocode/          # CLI entrypoint — 23 subcommands
+deepcodex/
+├── cmd/deepcodex/          # CLI entrypoint — 23 subcommands
 ├── data/                # Embedded command/tool registries
 ├── internal/
 │   ├── agent/           # ConversationRuntime, ToolExecutor, permissions, hooks
@@ -400,11 +400,11 @@ gocode/
 
 ---
 
-## gocode vs Claude Code
+## deepcodex vs Claude Code
 
-gocode is inspired by Claude Code but built from scratch with a different architecture, different language, and a broader vision. Here's how they compare:
+deepcodex is inspired by Claude Code but built from scratch with a different architecture, different language, and a broader vision. Here's how they compare:
 
-| Metric | Claude Code (Node.js) | gocode (Go) |
+| Metric | Claude Code (Node.js) | deepcodex (Go) |
 |--------|----------------------|-------------|
 | Startup time | ~200ms | **<10ms** |
 | Binary size | ~180MB (node_modules) | **~12MB** (single file) |
@@ -425,7 +425,7 @@ gocode is inspired by Claude Code but built from scratch with a different archit
 | Git worktree tools | Yes | **Yes** |
 | Task management tools | Yes | **Yes (+ background agents)** |
 | Notebook editing | Yes | **Yes** |
-| GitHub Actions | Yes | **Yes (gocode-action)** |
+| GitHub Actions | Yes | **Yes (deepcodex-action)** |
 | Structured output | Yes | **Yes (--output-format json, --output-schema)** |
 | Session continue | Yes | **Yes (-c / -r flags)** |
 | Vim keybindings | Yes | **Yes (full normal/insert/visual modes)** |
@@ -450,7 +450,7 @@ gocode is inspired by Claude Code but built from scratch with a different archit
 
 ```bash
 git clone https://github.com/zboya/deepcodex/agent.git
-cd gocode
+cd deepcodex
 make test && make build
 ```
 
@@ -458,7 +458,7 @@ make test && make build
 
 ## The Buddy System
 
-One more thing. gocode comes with a terminal companion. 18 species across 5 rarity tiers. Deterministic gacha seeded from your user ID. Tracks DEBUGGING, CHAOS, and SNARK stats. Displays ASCII sprites in your REPL banner.
+One more thing. deepcodex comes with a terminal companion. 18 species across 5 rarity tiers. Deterministic gacha seeded from your user ID. Tracks DEBUGGING, CHAOS, and SNARK stats. Displays ASCII sprites in your REPL banner.
 
 Because even an AI agent deserves a friend.
 
@@ -485,7 +485,7 @@ MIT — use it, fork it, ship it.
 </p>
 
 <p align="center">
-  <strong>gocode — the open-source Claude Code alternative. 200+ models. Multi-agent. Instant startup.</strong><br/>
+  <strong>deepcodex — the open-source Claude Code alternative. 200+ models. Multi-agent. Instant startup.</strong><br/>
   One binary. Zero dependencies. Any LLM. A team of agents.
 </p>
 

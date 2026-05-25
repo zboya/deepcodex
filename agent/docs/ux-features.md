@@ -2,7 +2,7 @@
 
 [← Back to README](../README.md)
 
-gocode v0.4.0 brings Claude Code-level UX to every model. Streaming responses, thinking blocks, git awareness, project config, and smart token limits — all working out of the box.
+deepcodex v0.4.0 brings Claude Code-level UX to every model. Streaming responses, thinking blocks, git awareness, project config, and smart token limits — all working out of the box.
 
 ---
 
@@ -61,7 +61,7 @@ index abc1234..def5678 100644
 
 ## Project Config (GOCODE.md / CLAUDE.md)
 
-Drop a `GOCODE.md` or `CLAUDE.md` file in your project root with project-specific instructions. gocode reads it on startup and injects it into the system prompt.
+Drop a `GOCODE.md` or `CLAUDE.md` file in your project root with project-specific instructions. deepcodex reads it on startup and injects it into the system prompt.
 
 ```markdown
 # Project Instructions
@@ -72,13 +72,13 @@ This is a Go project using Chi router and PostgreSQL.
 - Database migrations are in db/migrations/
 ```
 
-gocode checks for `GOCODE.md` first, then falls back to `CLAUDE.md`. This means your existing Claude Code project configs work automatically.
+deepcodex checks for `GOCODE.md` first, then falls back to `CLAUDE.md`. This means your existing Claude Code project configs work automatically.
 
 ---
 
 ## Thinking Block Display
 
-When using models that support extended thinking (Claude Opus, Claude Sonnet with thinking enabled), gocode displays the model's internal reasoning in a dimmed 💭 section:
+When using models that support extended thinking (Claude Opus, Claude Sonnet with thinking enabled), deepcodex displays the model's internal reasoning in a dimmed 💭 section:
 
 ```
 💭 Let me analyze the codebase structure first. The user wants to refactor
@@ -94,7 +94,7 @@ Thinking blocks are shown in gray/dim text so they're visible but don't compete 
 
 ## Model-Aware Token Limits
 
-gocode automatically sets the right `max_tokens` for each model. No more sending 8192 to a model that supports 128K output.
+deepcodex automatically sets the right `max_tokens` for each model. No more sending 8192 to a model that supports 128K output.
 
 | Model | Max Output Tokens |
 |-------|------------------|
@@ -113,7 +113,7 @@ You can still override with `--max-tokens` if needed.
 
 ## Git Context
 
-When you're in a git repository, gocode automatically includes the current branch and number of changed files in the system prompt. The agent knows your git state without you telling it.
+When you're in a git repository, deepcodex automatically includes the current branch and number of changed files in the system prompt. The agent knows your git state without you telling it.
 
 ```
 # Git

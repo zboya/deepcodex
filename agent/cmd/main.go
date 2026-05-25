@@ -91,14 +91,14 @@ func main() {
 	rt := runtime.NewPortRuntime(cmdReg, toolReg, execReg, sessionStore)
 
 	// Run pending data/config migrations on startup
-	migrationRunner := migrations.NewRunner(filepath.Join(".gocode"))
+	migrationRunner := migrations.NewRunner(filepath.Join(".deepcodex"))
 	if err := migrationRunner.Run(); err != nil {
 		log.Printf("[migrations] %v", err)
 	}
 
 	rootCmd := &cobra.Command{
-		Use:     "gocode",
-		Short:   "gocode agent harness runtime (Go port)",
+		Use:     "deepcodex",
+		Short:   "deepcodex agent harness runtime (Go port)",
 		Version: version,
 	}
 
@@ -601,7 +601,7 @@ func main() {
 			resolvedModel := h.Model
 
 			// CLI-specific tools: cron scheduler
-			cronDataDir := filepath.Join(".gocode")
+			cronDataDir := filepath.Join(".deepcodex")
 			cronScheduler := cron.NewScheduler(func(task *cron.Task) {
 				log.Printf("[cron] fired: %s — %s", task.ID, task.Prompt)
 			})
@@ -720,7 +720,7 @@ func main() {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			p, err := profiles.LoadProfile(profiles.DefaultProfilePath())
 			if err != nil {
-				return fmt.Errorf("no profile found (run 'gocode profile init'): %w", err)
+				return fmt.Errorf("no profile found (run 'deepcodex profile init'): %w", err)
 			}
 			data, _ := json.MarshalIndent(p, "", "  ")
 			fmt.Println(string(data))
@@ -827,7 +827,7 @@ func main() {
 			ls, _ := sl.LoadAll()
 			fmt.Printf("  ✓ Skills: %d loaded\n", len(ls))
 			// Check plugins
-			pm := plugins.NewPluginManager(filepath.Join(".gocode", "plugins"))
+			pm := plugins.NewPluginManager(filepath.Join(".deepcodex", "plugins"))
 			lp, _ := pm.LoadAll()
 			fmt.Printf("  ✓ Plugins: %d loaded\n", len(lp))
 			fmt.Println("Smoke test passed.")
@@ -842,7 +842,7 @@ func main() {
 			fmt.Println("Runtime hardening check...")
 			issues := 0
 			// Check file permissions on config dirs
-			for _, dir := range []string{".gocode", ".gocode/skills", ".gocode/plugins"} {
+			for _, dir := range []string{".deepcodex", ".deepcodex/skills", ".deepcodex/plugins"} {
 				if info, err := os.Stat(dir); err == nil {
 					perm := info.Mode().Perm()
 					if perm&0o077 != 0 {
@@ -854,7 +854,7 @@ func main() {
 				}
 			}
 			// Check auth key file
-			authPath := filepath.Join(".gocode", "auth_keys.json")
+			authPath := filepath.Join(".deepcodex", "auth_keys.json")
 			if info, err := os.Stat(authPath); err == nil {
 				perm := info.Mode().Perm()
 				if perm&0o077 != 0 {
@@ -1024,7 +1024,7 @@ func main() {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			addr, _ := cmd.Flags().GetString("addr")
 			// Load auth keys for request validation
-			store := authkeys.NewStore(filepath.Join(".gocode", "auth_keys.json"))
+			store := authkeys.NewStore(filepath.Join(".deepcodex", "auth_keys.json"))
 			store.Load()
 			var authOpts []func(string) bool
 			if len(store.List()) > 0 {
@@ -1040,7 +1040,7 @@ func main() {
 				},
 				authOpts...,
 			)
-			fmt.Fprintf(os.Stderr, "gocode API server listening on %s\n", addr)
+			fmt.Fprintf(os.Stderr, "deepcodex API server listening on %s\n", addr)
 			return http.ListenAndServe(addr, handler)
 		},
 	}
@@ -1164,8 +1164,8 @@ func main() {
 			fmt.Printf("Version:        %s\n", version)
 			fmt.Printf("Working dir:    %s\n", cwd)
 			fmt.Printf("Session dir:    %s\n", sessionStore.Dir)
-			fmt.Printf("Skills dir:     .gocode/skills/\n")
-			fmt.Printf("Plugins dir:    .gocode/plugins/\n")
+			fmt.Printf("Skills dir:     .deepcodex/skills/\n")
+			fmt.Printf("Plugins dir:    .deepcodex/plugins/\n")
 			fmt.Printf("Theme:          %s\n", tui.LoadTheme("").Name)
 			for _, name := range []string{"GOCODE.md", "CLAUDE.md"} {
 				if _, err := os.Stat(name); err == nil {
@@ -1181,7 +1181,7 @@ func main() {
 			sl := skills.NewSkillLoader("")
 			ls, _ := sl.LoadAll()
 			fmt.Printf("Skills:         %d loaded\n", len(ls))
-			pm := plugins.NewPluginManager(filepath.Join(".gocode", "plugins"))
+			pm := plugins.NewPluginManager(filepath.Join(".deepcodex", "plugins"))
 			lp, _ := pm.LoadAll()
 			fmt.Printf("Plugins:        %d loaded\n", len(lp))
 			editor := editorcompat.DetectEditor()
@@ -1196,7 +1196,7 @@ func main() {
 		Use:   "list",
 		Short: "List installed plugins",
 		Run: func(cmd *cobra.Command, args []string) {
-			pm := plugins.NewPluginManager(filepath.Join(".gocode", "plugins"))
+			pm := plugins.NewPluginManager(filepath.Join(".deepcodex", "plugins"))
 			loaded, errs := pm.LoadAll()
 			for _, e := range errs {
 				fmt.Fprintf(os.Stderr, "Warning: %v\n", e)
@@ -1223,7 +1223,7 @@ func main() {
 			if err := json.Unmarshal(data, &p); err != nil {
 				return fmt.Errorf("parsing plugin.json: %w", err)
 			}
-			pm := plugins.NewPluginManager(filepath.Join(".gocode", "plugins"))
+			pm := plugins.NewPluginManager(filepath.Join(".deepcodex", "plugins"))
 			if err := pm.Install(p.Name, p); err != nil {
 				return err
 			}
@@ -1236,7 +1236,7 @@ func main() {
 		Short: "Uninstall a plugin",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			pm := plugins.NewPluginManager(filepath.Join(".gocode", "plugins"))
+			pm := plugins.NewPluginManager(filepath.Join(".deepcodex", "plugins"))
 			if err := pm.Uninstall(args[0]); err != nil {
 				return err
 			}
@@ -1285,7 +1285,7 @@ func main() {
 		Use:   "auth",
 		Short: "Manage remote access auth keys",
 	}
-	authStorePath := filepath.Join(".gocode", "auth_keys.json")
+	authStorePath := filepath.Join(".deepcodex", "auth_keys.json")
 	authCmd.AddCommand(&cobra.Command{
 		Use:   "generate [name]",
 		Short: "Generate a new auth key",

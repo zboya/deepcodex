@@ -6,8 +6,8 @@ export function CreateChat(arg1) {
   return window['go']['main']['App']['CreateChat'](arg1);
 }
 
-export function Greet(arg1) {
-  return window['go']['main']['App']['Greet'](arg1);
+export function GetUsage() {
+  return window['go']['main']['App']['GetUsage']();
 }
 
 export function ListChats() {
@@ -20,4 +20,8 @@ export function ListProjects() {
 
 export function SendMessage(arg1, arg2) {
   return window['go']['main']['App']['SendMessage'](arg1, arg2);
+}
+
+export function SendMessageSync(arg1, arg2) {
+  return window['go']['main']['App']['SendMessageSync'](arg1, arg2);
 }

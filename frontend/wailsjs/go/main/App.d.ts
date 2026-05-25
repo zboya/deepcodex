@@ -4,10 +4,12 @@ import {main} from '../models';
 
 export function CreateChat(arg1:string):Promise<main.ChatItem>;
 
-export function Greet(arg1:string):Promise<string>;
+export function GetUsage():Promise<Record<string, any>>;
 
 export function ListChats():Promise<Array<main.ChatItem>>;
 
 export function ListProjects():Promise<Array<main.Project>>;
 
 export function SendMessage(arg1:string,arg2:string):Promise<main.Message>;
+
+export function SendMessageSync(arg1:string,arg2:string):Promise<main.Message>;

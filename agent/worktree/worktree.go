@@ -137,10 +137,10 @@ func ParseWorktreeList(output string) []WorktreeInfo {
 }
 
 // Lock acquires an advisory file lock for the given worktree path.
-// It creates a .gocode.lock file with O_CREATE|O_EXCL to ensure exclusivity.
+// It creates a .deepcodex.lock file with O_CREATE|O_EXCL to ensure exclusivity.
 // Returns a release function that removes the lock file.
 func Lock(worktreePath string) (release func(), err error) {
-	lockPath := filepath.Join(worktreePath, ".gocode.lock")
+	lockPath := filepath.Join(worktreePath, ".deepcodex.lock")
 	f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
 	if err != nil {
 		return nil, fmt.Errorf("acquiring lock on %s: %w", worktreePath, err)

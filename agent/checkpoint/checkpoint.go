@@ -30,7 +30,7 @@ func NewManager(sessionID, repoRoot string) *Manager {
 	return &Manager{
 		sessionID: sessionID,
 		repoRoot:  repoRoot,
-		refPrefix: "refs/gocode/checkpoints/" + sessionID + "/",
+		refPrefix: "refs/deepcodex/checkpoints/" + sessionID + "/",
 	}
 }
 

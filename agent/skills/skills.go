@@ -1,7 +1,7 @@
 // Package skills provides a skill loader and activator for domain-tuned agent profiles.
 // Skills are JSON files containing a name, system prompt, tool permission list, and
 // optional MCP server configurations. Built-in skills (git-master, frontend-ui-ux, etc.)
-// are always available; user-defined skills are loaded from .gocode/skills/.
+// are always available; user-defined skills are loaded from .deepcodex/skills/.
 package skills
 
 import (
@@ -48,10 +48,10 @@ type SkillLoader struct {
 }
 
 // NewSkillLoader creates a loader with built-in skills.
-// If dir is empty, it defaults to ".gocode/skills/".
+// If dir is empty, it defaults to ".deepcodex/skills/".
 func NewSkillLoader(dir string) *SkillLoader {
 	if dir == "" {
-		dir = ".gocode/skills/"
+		dir = ".deepcodex/skills/"
 	}
 	return &SkillLoader{
 		dir:      dir,
@@ -451,7 +451,7 @@ STEPS:
 
 1. GATHER ALL MEMORY LAYERS
 Read GOCODE.md and GOCODE.local.md from the project root (if they exist).
-Check .gocode/memory/ for auto-memory entries. Note which scopes exist.
+Check .deepcodex/memory/ for auto-memory entries. Note which scopes exist.
 
 2. CLASSIFY EACH AUTO-MEMORY ENTRY
 For each entry, determine the best destination:
@@ -501,7 +501,7 @@ Ask concise questions to confirm:
 - High-level goals and success criteria
 - The steps you identified (confirm or adjust)
 - Whether it needs arguments
-- Where to save: project (.gocode/skills/) or personal (~/.gocode/skills/)
+- Where to save: project (.deepcodex/skills/) or personal (~/.deepcodex/skills/)
 
 STEP 3: WRITE THE SKILL FILE
 Create a JSON skill file with:

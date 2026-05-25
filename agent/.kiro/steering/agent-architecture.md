@@ -2,7 +2,7 @@
 inclusion: auto
 ---
 
-# Agent Architecture Guide — gocode
+# Agent Architecture Guide — deepcodex
 
 ## System Design Philosophy
 
@@ -87,7 +87,7 @@ Three scopes: session, project, global. The dream system runs a 4-phase consolid
 1. Define the interface first. What does the component need to do?
 2. Implement behind the interface. Keep the implementation private.
 3. Register in the appropriate place (tool registry, command registry, etc.).
-4. Wire in `cmd/gocode/main.go` if it needs CLI exposure.
+4. Wire in `cmd/deepcodex/main.go` if it needs CLI exposure.
 5. Add tests — at minimum, unit tests for the happy path and error cases.
 6. Document in the appropriate `docs/` file.
 

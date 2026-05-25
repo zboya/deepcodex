@@ -34,18 +34,18 @@ type MemoryEntry struct {
 
 // Store manages the memory directory with aging and relevance.
 type Store struct {
-	projectDir string // .gocode/memory/
-	userDir    string // ~/.gocode/memory/
-	teamDir    string // .gocode/team-memory/
+	projectDir string // .deepcodex/memory/
+	userDir    string // ~/.deepcodex/memory/
+	teamDir    string // .deepcodex/team-memory/
 }
 
 // NewStore creates a memory directory store with default directories.
 func NewStore() *Store {
 	home, _ := os.UserHomeDir()
 	return &Store{
-		projectDir: filepath.Join(".gocode", "memory"),
-		userDir:    filepath.Join(home, ".gocode", "memory"),
-		teamDir:    filepath.Join(".gocode", "team-memory"),
+		projectDir: filepath.Join(".deepcodex", "memory"),
+		userDir:    filepath.Join(home, ".deepcodex", "memory"),
+		teamDir:    filepath.Join(".deepcodex", "team-memory"),
 	}
 }
 

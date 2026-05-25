@@ -1,9 +1,0 @@
-{
-  "mcpServers": {
-    "gocode": {
-      "command": "gocode",
-      "args": ["mcp-serve", "--transport", "stdio"],
-      "disabled": false
-    }
-  }
-}

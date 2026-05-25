@@ -2,7 +2,7 @@
 inclusion: auto
 ---
 
-# Code Quality & Review Standards — gocode
+# Code Quality & Review Standards — deepcodex
 
 ## The Bar
 

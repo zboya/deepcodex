@@ -183,7 +183,7 @@ func TestCleanup(t *testing.T) {
 	}
 
 	// Verify refs are invisible to git log and git branch
-	cmd := exec.Command("git", "for-each-ref", "refs/gocode/checkpoints/test-session/")
+	cmd := exec.Command("git", "for-each-ref", "refs/deepcodex/checkpoints/test-session/")
 	cmd.Dir = dir
 	out, err := cmd.Output()
 	if err != nil {
@@ -250,12 +250,12 @@ func TestCheckpointIsolation(t *testing.T) {
 		t.Fatal(err)
 	}
 	// The checkpoint commit should not appear in normal log --all
-	// (for-each-ref based refs under refs/gocode/ are not standard branches/tags)
+	// (for-each-ref based refs under refs/deepcodex/ are not standard branches/tags)
 	branchOut, err := exec.Command("git", "-C", dir, "branch", "-a").Output()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(branchOut), "gocode") {
+	if strings.Contains(string(branchOut), "deepcodex") {
 		t.Errorf("checkpoint refs visible in git branch: %s", branchOut)
 	}
 	_ = logOut // log --all may include the ref depending on git version, but branch should not

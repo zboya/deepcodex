@@ -1,5 +1,5 @@
 .vscode
-.gocode
+.deepcodex
 build/bin
 node_modules
 frontend/dist

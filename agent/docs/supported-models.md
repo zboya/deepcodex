@@ -1,6 +1,6 @@
 # Supported Models — The Complete List
 
-gocode speaks to 200+ models across 11 providers. Four native. Seven via the OpenAI-compatible shim. Plus any local model you can run.
+deepcodex speaks to 200+ models across 11 providers. Four native. Seven via the OpenAI-compatible shim. Plus any local model you can run.
 
 Set one env var. Pick a model. Go.
 
@@ -20,7 +20,7 @@ These are first-class integrations with full streaming, tool use, and thinking b
 
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
-gocode chat --model sonnet
+deepcodex chat --model sonnet
 ```
 
 ### OpenAI (GPT)
@@ -41,7 +41,7 @@ gocode chat --model sonnet
 
 ```bash
 export OPENAI_API_KEY=sk-...
-gocode chat --model gpt5
+deepcodex chat --model gpt5
 ```
 
 ### Google (Gemini)
@@ -54,7 +54,7 @@ gocode chat --model gpt5
 
 ```bash
 export GEMINI_API_KEY=AI...
-gocode chat --model gemini
+deepcodex chat --model gemini
 ```
 
 ### xAI (Grok)
@@ -68,14 +68,14 @@ gocode chat --model gemini
 
 ```bash
 export XAI_API_KEY=xai-...
-gocode chat --model grok
+deepcodex chat --model grok
 ```
 
 ---
 
 ## Proxy Providers (OpenAI-Compatible Shim)
 
-Any service that speaks the OpenAI chat completions API works out of the box. Set the API key and gocode auto-detects the provider.
+Any service that speaks the OpenAI chat completions API works out of the box. Set the API key and deepcodex auto-detects the provider.
 
 ### DeepSeek
 
@@ -87,7 +87,7 @@ Any service that speaks the OpenAI chat completions API works out of the box. Se
 
 ```bash
 export DEEPSEEK_API_KEY=sk-...
-gocode chat --model deepseek
+deepcodex chat --model deepseek
 ```
 
 ### Mistral
@@ -102,7 +102,7 @@ gocode chat --model deepseek
 
 ```bash
 export MISTRAL_API_KEY=...
-gocode chat --model mistral
+deepcodex chat --model mistral
 ```
 
 ### Groq (Ultra-Fast Inference)
@@ -115,7 +115,7 @@ gocode chat --model mistral
 
 ```bash
 export GROQ_API_KEY=gsk_...
-gocode chat --model groq-llama
+deepcodex chat --model groq-llama
 ```
 
 ### Together AI
@@ -128,7 +128,7 @@ gocode chat --model groq-llama
 
 ```bash
 export TOGETHER_API_KEY=...
-gocode chat --model together-llama
+deepcodex chat --model together-llama
 ```
 
 ### Novita AI
@@ -148,9 +148,9 @@ OpenAI-compatible proxy with Llama, DeepSeek, Qwen, and Mistral hosts.
 
 ```bash
 export NOVITA_API_KEY=...
-gocode chat --model novita-llama
+deepcodex chat --model novita-llama
 # Or pass any Novita-hosted model ID directly:
-gocode chat --model qwen/qwen-2.5-72b-instruct
+deepcodex chat --model qwen/qwen-2.5-72b-instruct
 ```
 
 Override the endpoint with `NOVITA_BASE_URL` if needed (default `https://api.novita.ai/v3/openai`).
@@ -159,20 +159,20 @@ Override the endpoint with `NOVITA_BASE_URL` if needed (default `https://api.nov
 
 OpenRouter gives you access to every model from every provider through a single API key. Pass any model ID from [openrouter.ai/models](https://openrouter.ai/models).
 
-gocode auto-detects OpenRouter when the model name contains a `/` and `OPENROUTER_API_KEY` is set. No extra config needed.
+deepcodex auto-detects OpenRouter when the model name contains a `/` and `OPENROUTER_API_KEY` is set. No extra config needed.
 
 ```bash
 export OPENROUTER_API_KEY=sk-or-...
-gocode chat --model anthropic/claude-sonnet-4-20250514    # Claude
-gocode chat --model openai/gpt-4o                         # GPT-4o
-gocode chat --model google/gemini-2.5-pro-preview         # Gemini
-gocode chat --model x-ai/grok-3                           # Grok
-gocode chat --model moonshotai/kimi-k2                    # Kimi K2
-gocode chat --model minimax/minimax-01                    # MiniMax
-gocode chat --model qwen/qwen-2.5-72b-instruct           # Qwen
-gocode chat --model meta-llama/llama-3.3-70b-instruct     # Llama
-gocode chat --model mistralai/mistral-large-latest        # Mistral
-gocode chat --model deepseek/deepseek-chat                # DeepSeek
+deepcodex chat --model anthropic/claude-sonnet-4-20250514    # Claude
+deepcodex chat --model openai/gpt-4o                         # GPT-4o
+deepcodex chat --model google/gemini-2.5-pro-preview         # Gemini
+deepcodex chat --model x-ai/grok-3                           # Grok
+deepcodex chat --model moonshotai/kimi-k2                    # Kimi K2
+deepcodex chat --model minimax/minimax-01                    # MiniMax
+deepcodex chat --model qwen/qwen-2.5-72b-instruct           # Qwen
+deepcodex chat --model meta-llama/llama-3.3-70b-instruct     # Llama
+deepcodex chat --model mistralai/mistral-large-latest        # Mistral
+deepcodex chat --model deepseek/deepseek-chat                # DeepSeek
 # ... any model on openrouter.ai/models
 ```
 
@@ -181,14 +181,14 @@ gocode chat --model deepseek/deepseek-chat                # DeepSeek
 ```bash
 export AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com
 export AZURE_OPENAI_API_KEY=...
-gocode chat --model gpt-4o  # uses your Azure deployment
+deepcodex chat --model gpt-4o  # uses your Azure deployment
 ```
 
 ### Codex Backend
 
 ```bash
 # Auth from ~/.codex/auth.json (auto-detected)
-gocode chat --model codex
+deepcodex chat --model codex
 ```
 
 ---
@@ -212,9 +212,9 @@ Set `OPENAI_BASE_URL` to point at any local inference server. No API key needed.
 # Start Ollama
 ollama serve
 
-# Point gocode at it
+# Point deepcodex at it
 export OPENAI_BASE_URL=http://localhost:11434/v1
-gocode chat --model llama
+deepcodex chat --model llama
 ```
 
 ### LM Studio
@@ -222,14 +222,14 @@ gocode chat --model llama
 ```bash
 # Start LM Studio server
 export OPENAI_BASE_URL=http://localhost:1234/v1
-gocode chat --model qwen-coder
+deepcodex chat --model qwen-coder
 ```
 
 ### vLLM / Text Generation Inference / Any OpenAI-Compatible Server
 
 ```bash
 export OPENAI_BASE_URL=http://localhost:8000/v1
-gocode chat --model your-model-name
+deepcodex chat --model your-model-name
 ```
 
 ---
@@ -239,20 +239,20 @@ gocode chat --model your-model-name
 Auto-detect the best provider and model for your workflow:
 
 ```bash
-gocode profile init                    # create default profile
-gocode profile auto --goal coding      # auto-detect from env vars
-gocode profile auto --goal latency     # optimize for speed
-gocode profile auto --goal balanced    # best of both worlds
-gocode profile recommend --goal coding # preview without saving
-gocode profile show                    # show current profile
+deepcodex profile init                    # create default profile
+deepcodex profile auto --goal coding      # auto-detect from env vars
+deepcodex profile auto --goal latency     # optimize for speed
+deepcodex profile auto --goal balanced    # best of both worlds
+deepcodex profile recommend --goal coding # preview without saving
+deepcodex profile show                    # show current profile
 ```
 
 Or use `--goal` directly:
 
 ```bash
-gocode chat --goal coding     # picks the best coding model from your available providers
-gocode chat --goal latency    # picks the fastest model
-gocode chat --goal balanced   # picks a balanced option
+deepcodex chat --goal coding     # picks the best coding model from your available providers
+deepcodex chat --goal latency    # picks the fastest model
+deepcodex chat --goal balanced   # picks a balanced option
 ```
 
 ---

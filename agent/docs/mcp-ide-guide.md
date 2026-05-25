@@ -2,7 +2,7 @@
 
 [← Back to README](../README.md)
 
-gocode includes a full MCP (Model Context Protocol) server that lets any compatible IDE use it as a tool provider. This is separate from agent mode — here, your IDE's AI does the thinking, and gocode provides the tools.
+deepcodex includes a full MCP (Model Context Protocol) server that lets any compatible IDE use it as a tool provider. This is separate from agent mode — here, your IDE's AI does the thinking, and deepcodex provides the tools.
 
 ---
 
@@ -11,12 +11,12 @@ gocode includes a full MCP (Model Context Protocol) server that lets any compati
 ```
 Your IDE (Cursor, Kiro, VS Code, etc.)
   ↓ sends tool requests via MCP protocol
-gocode mcp-serve (stdio or HTTP)
+deepcodex mcp-serve (stdio or HTTP)
   ↓ executes tools
 File system, shell, workspace analysis
 ```
 
-Your IDE handles the LLM calls. gocode handles the tool execution.
+Your IDE handles the LLM calls. deepcodex handles the tool execution.
 
 ---
 
@@ -24,10 +24,10 @@ Your IDE handles the LLM calls. gocode handles the tool execution.
 
 ```bash
 # stdio transport (for IDE integration)
-gocode mcp-serve --transport stdio
+deepcodex mcp-serve --transport stdio
 
 # HTTP transport (for any client)
-gocode mcp-serve --transport http --addr :8080
+deepcodex mcp-serve --transport http --addr :8080
 ```
 
 ---
@@ -41,8 +41,8 @@ Add to `.cursor/mcp.json`:
 ```json
 {
   "mcpServers": {
-    "gocode": {
-      "command": "gocode",
+    "deepcodex": {
+      "command": "deepcodex",
       "args": ["mcp-serve", "--transport", "stdio"]
     }
   }
@@ -56,8 +56,8 @@ Add to `~/.kiro/settings/mcp.json` or `.kiro/settings/mcp.json`:
 ```json
 {
   "mcpServers": {
-    "gocode": {
-      "command": "gocode",
+    "deepcodex": {
+      "command": "deepcodex",
       "args": ["mcp-serve", "--transport", "stdio"],
       "disabled": false,
       "autoApprove": ["tools/list"]
@@ -73,9 +73,9 @@ Add to `.vscode/mcp.json`:
 ```json
 {
   "servers": {
-    "gocode": {
+    "deepcodex": {
       "type": "stdio",
-      "command": "gocode",
+      "command": "deepcodex",
       "args": ["mcp-serve", "--transport", "stdio"]
     }
   }
@@ -89,8 +89,8 @@ Add to `.gemini/settings/mcp.json`:
 ```json
 {
   "mcpServers": {
-    "gocode": {
-      "command": "gocode",
+    "deepcodex": {
+      "command": "deepcodex",
       "args": ["mcp-serve", "--transport", "stdio"],
       "disabled": false
     }
@@ -105,8 +105,8 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
 ```json
 {
   "mcpServers": {
-    "gocode": {
-      "command": "gocode",
+    "deepcodex": {
+      "command": "deepcodex",
       "args": ["mcp-serve", "--transport", "stdio"]
     }
   }
@@ -116,7 +116,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
 ### Any HTTP Client
 
 ```bash
-gocode mcp-serve --transport http --addr :8080
+deepcodex mcp-serve --transport http --addr :8080
 # POST http://localhost:8080/mcp
 ```
 
@@ -136,7 +136,7 @@ gocode mcp-serve --transport http --addr :8080
 | `GrepTool` | Recursive content search with include filters |
 | `ListDirectoryTool` | List directories with file sizes |
 
-### gocode-Exclusive Orchestration Tools
+### deepcodex-Exclusive Orchestration Tools
 
 | Tool | Description |
 |------|-------------|

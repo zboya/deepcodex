@@ -1,11 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 
-# gocode installer — works on macOS and Linux
-# Usage: curl -fsSL https://raw.githubusercontent.com/gocode/gocode/main/install.sh | bash
+# deepcodex installer — works on macOS and Linux
+# Usage: curl -fsSL https://raw.githubusercontent.com/deepcodex/deepcodex/main/install.sh | bash
 
-REPO="AlleyBo55/gocode"
-BINARY="gocode"
+REPO="AlleyBo55/deepcodex"
+BINARY="deepcodex"
 INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
 
 # Detect OS and arch
@@ -40,7 +40,7 @@ URL="https://github.com/${REPO}/releases/download/v${LATEST}/${FILENAME}"
 TMPDIR=$(mktemp -d)
 trap 'rm -rf "$TMPDIR"' EXIT
 
-echo "Downloading gocode v${LATEST} for ${OS}/${ARCH}..."
+echo "Downloading deepcodex v${LATEST} for ${OS}/${ARCH}..."
 curl -fsSL "$URL" -o "${TMPDIR}/${FILENAME}"
 
 echo "Extracting..."
@@ -57,6 +57,6 @@ fi
 chmod +x "${INSTALL_DIR}/${BINARY}"
 
 echo ""
-echo "✓ gocode v${LATEST} installed to ${INSTALL_DIR}/${BINARY}"
+echo "✓ deepcodex v${LATEST} installed to ${INSTALL_DIR}/${BINARY}"
 echo ""
-echo "Run 'gocode --help' to get started."
+echo "Run 'deepcodex --help' to get started."

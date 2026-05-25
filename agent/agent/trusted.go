@@ -22,7 +22,7 @@ type TrustedToolStore struct {
 // NewTrustedToolStore creates a store backed by a JSON file.
 func NewTrustedToolStore(path string) *TrustedToolStore {
 	if path == "" {
-		path = filepath.Join(".gocode", "trusted_tools.json")
+		path = filepath.Join(".deepcodex", "trusted_tools.json")
 	}
 	return &TrustedToolStore{path: path}
 }

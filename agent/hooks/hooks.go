@@ -1,5 +1,5 @@
 // Package hooks provides shell-script lifecycle hooks for tool execution.
-// Hooks are configured via .gocode/hooks.json and execute shell commands
+// Hooks are configured via .deepcodex/hooks.json and execute shell commands
 // at PreToolUse and PostToolUse events.
 package hooks
 
@@ -16,7 +16,7 @@ import (
 	"github.com/zboya/deepcodex/agent/agent"
 )
 
-// HookConfig is the top-level hooks configuration from .gocode/hooks.json.
+// HookConfig is the top-level hooks configuration from .deepcodex/hooks.json.
 type HookConfig struct {
 	Hooks []HookDef `json:"hooks"`
 }

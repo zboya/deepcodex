@@ -204,7 +204,7 @@ func TestExtractMemories(t *testing.T) {
 	s := tempStore(t)
 	text := `You should always use gofmt.
 This is a normal sentence.
-Remember that the config is in /etc/gocode/config.yaml.
+Remember that the config is in /etc/deepcodex/config.yaml.
 The project is at github.com/zboya/deepcodex/agent.
 Never commit secrets to git.`
 

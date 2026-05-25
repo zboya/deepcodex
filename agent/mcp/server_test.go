@@ -66,8 +66,8 @@ func TestInitializeHandshake(t *testing.T) {
 	if result.ProtocolVersion != "2024-11-05" {
 		t.Errorf("expected protocol version 2024-11-05, got %s", result.ProtocolVersion)
 	}
-	if result.ServerInfo.Name != "gocode" {
-		t.Errorf("expected server name gocode, got %s", result.ServerInfo.Name)
+	if result.ServerInfo.Name != "deepcodex" {
+		t.Errorf("expected server name deepcodex, got %s", result.ServerInfo.Name)
 	}
 	if result.Capabilities.Tools == nil {
 		t.Error("expected tools capability")
@@ -174,7 +174,7 @@ func TestToolsCallBashTool(t *testing.T) {
 		Params: map[string]interface{}{
 			"name": "BashTool",
 			"arguments": map[string]interface{}{
-				"command": "echo hello-gocode",
+				"command": "echo hello-deepcodex",
 			},
 		},
 	}
@@ -220,8 +220,8 @@ func TestToolsCallBashTool(t *testing.T) {
 		t.Fatal("text is not a string")
 	}
 
-	if !strings.Contains(text, "hello-gocode") {
-		t.Errorf("expected output to contain 'hello-gocode', got: %s", text)
+	if !strings.Contains(text, "hello-deepcodex") {
+		t.Errorf("expected output to contain 'hello-deepcodex', got: %s", text)
 	}
 }
 

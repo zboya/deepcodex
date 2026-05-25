@@ -2,13 +2,13 @@
 inclusion: auto
 ---
 
-# Development Workflow — gocode
+# Development Workflow — deepcodex
 
 ## Build & Test
 
 ```bash
 # Build
-go build -o gocode ./cmd/gocode/
+go build -o deepcodex ./cmd/deepcodex/
 
 # Test all packages
 go test ./...
@@ -29,11 +29,11 @@ go vet ./...
 ## Project Layout
 
 ```
-cmd/gocode/main.go       — CLI entrypoint, all Cobra commands, wiring
+cmd/deepcodex/main.go       — CLI entrypoint, all Cobra commands, wiring
 internal/                — All business logic (26 packages)
 data/                    — Embedded JSON registries (go:embed)
 docs/                    — User-facing documentation
-.gocode/                 — Runtime config (skills, hooks, cron, themes)
+.deepcodex/                 — Runtime config (skills, hooks, cron, themes)
 ```
 
 ## Adding a New Tool
@@ -83,13 +83,13 @@ r.executors["mynewtool"] = &MyNewTool{}
 | File | Purpose |
 |------|---------|
 | `GOCODE.md` / `CLAUDE.md` | Project-specific agent instructions |
-| `.gocode/skills/*.json` | Custom skill definitions |
-| `.gocode/hooks.json` | Lifecycle hooks |
-| `.gocode/cron.json` | Scheduled tasks |
-| `.gocode/mcp.json` | MCP client server configs |
-| `.gocode/theme.json` | Custom TUI theme |
-| `.gocode/keybinds.json` | Custom keybindings |
-| `.gocode/output-styles/` | Custom output styles |
+| `.deepcodex/skills/*.json` | Custom skill definitions |
+| `.deepcodex/hooks.json` | Lifecycle hooks |
+| `.deepcodex/cron.json` | Scheduled tasks |
+| `.deepcodex/mcp.json` | MCP client server configs |
+| `.deepcodex/theme.json` | Custom TUI theme |
+| `.deepcodex/keybinds.json` | Custom keybindings |
+| `.deepcodex/output-styles/` | Custom output styles |
 
 ## Debugging
 

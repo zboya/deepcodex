@@ -92,7 +92,7 @@ type toolCallResult struct {
 
 // --- Configuration ---
 
-// ClientConfig is loaded from .gocode/mcp.json.
+// ClientConfig is loaded from .deepcodex/mcp.json.
 type ClientConfig struct {
 	Servers []ServerDef `json:"servers"`
 }
@@ -375,7 +375,7 @@ func (m *Manager) initializeHandshake(sc *ServerConn) error {
 		ProtocolVersion: "2024-11-05",
 		Capabilities:    struct{}{},
 		ClientInfo: clientInfo{
-			Name:    "gocode",
+			Name:    "deepcodex",
 			Version: "1.0.0",
 		},
 	}

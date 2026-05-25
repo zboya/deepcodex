@@ -1,8 +1,8 @@
-name: 'gocode-action'
-description: 'Run gocode agent in GitHub Actions for PR review and issue implementation'
+name: 'deepcodex-action'
+description: 'Run deepcodex agent in GitHub Actions for PR review and issue implementation'
 inputs:
   prompt:
-    description: 'Prompt to send to gocode'
+    description: 'Prompt to send to deepcodex'
     required: false
     default: ''
   provider_key:
@@ -17,11 +17,11 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - name: Install gocode
+    - name: Install deepcodex
       shell: bash
       run: |
-        curl -fsSL https://raw.githubusercontent.com/AlleyBo55/gocode/main/install.sh | bash
-        echo "$HOME/.gocode/bin" >> "$GITHUB_PATH"
+        curl -fsSL https://raw.githubusercontent.com/AlleyBo55/deepcodex/main/install.sh | bash
+        echo "$HOME/.deepcodex/bin" >> "$GITHUB_PATH"
 
     - name: Configure provider key
       shell: bash
@@ -29,7 +29,7 @@ runs:
         PROVIDER_KEY: ${{ inputs.provider_key }}
       run: echo "GOCODE_API_KEY=$PROVIDER_KEY" >> "$GITHUB_ENV"
 
-    - name: Run gocode
+    - name: Run deepcodex
       shell: bash
       env:
         GOCODE_API_KEY: ${{ inputs.provider_key }}
@@ -37,7 +37,7 @@ runs:
         GOCODE_TRIGGER: ${{ inputs.trigger }}
       run: |
         if [ -n "${{ inputs.prompt }}" ]; then
-          gocode prompt --output-format json "${{ inputs.prompt }}"
+          deepcodex prompt --output-format json "${{ inputs.prompt }}"
         elif [ "${{ inputs.trigger }}" = "pr-comment" ] || [ "${{ inputs.trigger }}" = "issue-assign" ]; then
           exec "${{ github.action_path }}/entrypoint.sh"
         else

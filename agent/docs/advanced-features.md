@@ -2,7 +2,7 @@
 
 [← Back to README](../README.md)
 
-gocode v0.3.0 introduces three layers of advanced capabilities that transform it from a coding agent into a full agent operating system.
+deepcodex v0.3.0 introduces three layers of advanced capabilities that transform it from a coding agent into a full agent operating system.
 
 ---
 
@@ -12,7 +12,7 @@ These features make every interaction more reliable. They work silently, behind 
 
 ### Hash-Anchored File I/O
 
-Every line gocode reads gets a content hash. Every edit is validated against those hashes before it touches your files. If the file changed since the last read, the edit is rejected. No more silent overwrites. No more stale patches.
+Every line deepcodex reads gets a content hash. Every edit is validated against those hashes before it touches your files. If the file changed since the last read, the edit is rejected. No more silent overwrites. No more stale patches.
 
 ```
 42#a7| func main() {
@@ -23,14 +23,14 @@ Every line gocode reads gets a content hash. Every edit is validated against tho
 Enable with `--hashline`:
 
 ```bash
-gocode chat --hashline
+deepcodex chat --hashline
 ```
 
 The hash is a 2-character CRC32 fingerprint. Deterministic, fast, collision-resistant. The agent sees annotated output; your files stay untouched.
 
 ### Model Fallback Chain
 
-When your primary model hits a rate limit, a server error, or a context window ceiling, gocode doesn't stop. It falls through to the next model in the chain. Automatically. Silently.
+When your primary model hits a rate limit, a server error, or a context window ceiling, deepcodex doesn't stop. It falls through to the next model in the chain. Automatically. Silently.
 
 - HTTP 429 (rate limit) → try next model
 - HTTP 500/502/503/504 → try next model
@@ -54,7 +54,7 @@ The `ModelRouter` maps each category to its own `FallbackProvider`. Routing and 
 
 ### Session Recovery
 
-Long sessions crash. Context windows fill up. APIs go down. gocode handles all of it:
+Long sessions crash. Context windows fill up. APIs go down. deepcodex handles all of it:
 
 1. **Context window exhaustion** — compacts the conversation (keeps system prompt + last 5 message pairs), retries
 2. **Transient API failure** — exponential backoff, up to 3 attempts
@@ -119,12 +119,12 @@ Approve it, and the plan becomes the task specification for the orchestrator.
 
 Skills are domain-tuned agent profiles. Each skill is a JSON file with a custom system prompt, tool permissions, and optional MCP server configurations.
 
-Two built-in skills ship with gocode:
+Two built-in skills ship with deepcodex:
 
 - **git-master** — atomic commits, interactive rebase, clean history. Tools: `bashtool`, `filereadtool`, `fileedittool`.
 - **frontend-ui-ux** — design-first UI development, accessibility, responsive patterns. Tools: all file tools + glob/grep.
 
-Create your own by dropping a JSON file in `.gocode/skills/`:
+Create your own by dropping a JSON file in `.deepcodex/skills/`:
 
 ```json
 {
@@ -183,9 +183,9 @@ All sessions are cleaned up when the conversation ends. Requires `tmux` installe
 
 ### MCP Client
 
-gocode can now connect to external MCP servers as a client. Web search, documentation lookup, code search — any MCP-compliant server becomes a tool the agent can use.
+deepcodex can now connect to external MCP servers as a client. Web search, documentation lookup, code search — any MCP-compliant server becomes a tool the agent can use.
 
-Configure in `.gocode/mcp.json`:
+Configure in `.deepcodex/mcp.json`:
 
 ```json
 {
@@ -235,7 +235,7 @@ Skips `node_modules`, `vendor`, `.git`, `dist`, and `.gitignore`'d paths. Never 
 
 ## Phase 4 — System Features (Wave 2)
 
-Eighteen new features that extend gocode from a coding agent into a self-managing, IDE-integrated agent operating system.
+Eighteen new features that extend deepcodex from a coding agent into a self-managing, IDE-integrated agent operating system.
 
 ### ULTRAPLAN — Deep Planning
 
@@ -251,11 +251,11 @@ Full vim-mode editing in the REPL input. Supports normal, insert, and visual mod
 
 ### Cron/Scheduled Tasks
 
-Five-field cron expression parser with a background scheduler. Create recurring tasks that spawn background agents at specified intervals. Schedules persist to `.gocode/cron.json` and survive restarts. Manage with the `ScheduleCronTool` or `/cron` slash commands.
+Five-field cron expression parser with a background scheduler. Create recurring tasks that spawn background agents at specified intervals. Schedules persist to `.deepcodex/cron.json` and survive restarts. Manage with the `ScheduleCronTool` or `/cron` slash commands.
 
 ### Bridge/IDE Integration
 
-WebSocket server for bidirectional communication between gocode and IDEs. Supports session management, permission forwarding, and real-time response streaming. Start with `gocode bridge --port <port>`. Handles multiple concurrent IDE connections with independent sessions.
+WebSocket server for bidirectional communication between deepcodex and IDEs. Supports session management, permission forwarding, and real-time response streaming. Start with `deepcodex bridge --port <port>`. Handles multiple concurrent IDE connections with independent sessions.
 
 ### Swarm Coordination
 
@@ -267,7 +267,7 @@ Read and extract text from PDF files up to 50 MB. Integrated into the file read 
 
 ### Output Styles
 
-Switch between output formatting modes: concise, verbose, markdown, and minimal. Set via `--output-style` CLI flag or `/output-style` slash command. User-defined styles can be added in `.gocode/output-styles/`. Styles modify the system prompt and display rendering.
+Switch between output formatting modes: concise, verbose, markdown, and minimal. Set via `--output-style` CLI flag or `/output-style` slash command. User-defined styles can be added in `.deepcodex/output-styles/`. Styles modify the system prompt and display rendering.
 
 ### Migrations System
 

@@ -2,7 +2,7 @@
 
 [← Back to README](../README.md)
 
-gocode's agent mode lets you use any supported LLM as a standalone coding agent directly from your terminal. No IDE required.
+deepcodex's agent mode lets you use any supported LLM as a standalone coding agent directly from your terminal. No IDE required.
 
 ---
 
@@ -36,7 +36,7 @@ source ~/.zshrc
 You can also pass the key inline with `--api-key`:
 
 ```bash
-gocode chat --api-key sk-ant-api03-...
+deepcodex chat --api-key sk-ant-api03-...
 ```
 
 ### Anthropic Advanced Auth
@@ -48,22 +48,22 @@ Anthropic supports two auth methods simultaneously:
 | `ANTHROPIC_API_KEY` | Standard API key (sent as `x-api-key` header) |
 | `ANTHROPIC_AUTH_TOKEN` | Bearer token for OAuth/proxy setups |
 
-If both are set, gocode sends both headers on every request.
+If both are set, deepcodex sends both headers on every request.
 
 ---
 
-## Interactive Chat (`gocode chat`)
+## Interactive Chat (`deepcodex chat`)
 
 Start a conversation:
 
 ```bash
-gocode chat
+deepcodex chat
 ```
 
 You'll see a prompt:
 
 ```
-gocode agent — type /exit to quit, /clear to reset, /cost for usage
+deepcodex agent — type /exit to quit, /clear to reset, /cost for usage
 
 you> help me refactor the auth module
 ```
@@ -100,12 +100,12 @@ and returns the sum
 
 ---
 
-## One-Shot Mode (`gocode prompt`)
+## One-Shot Mode (`deepcodex prompt`)
 
 Run a single prompt and exit:
 
 ```bash
-gocode prompt "find all files with TODO comments and list them"
+deepcodex prompt "find all files with TODO comments and list them"
 ```
 
 ### Prompt Flags
@@ -122,16 +122,16 @@ gocode prompt "find all files with TODO comments and list them"
 
 ```bash
 # Use GPT-4o
-gocode prompt --model gpt4o "explain this codebase structure"
+deepcodex prompt --model gpt4o "explain this codebase structure"
 
 # Use Gemini
-gocode prompt --model gemini "write tests for the auth module"
+deepcodex prompt --model gemini "write tests for the auth module"
 
 # Use Grok
-gocode prompt --model grok "find performance bottlenecks in main.go"
+deepcodex prompt --model grok "find performance bottlenecks in main.go"
 
 # Disable streaming for piping
-gocode prompt --no-stream "list all exported functions" > functions.txt
+deepcodex prompt --no-stream "list all exported functions" > functions.txt
 ```
 
 ---
@@ -142,22 +142,22 @@ Use the `--model` flag with either a short alias or a full model ID:
 
 ```bash
 # Short aliases
-gocode chat --model opus          # Claude Opus 4.6
-gocode chat --model sonnet        # Claude Sonnet 4.6
-gocode chat --model gpt5          # GPT-5.4
-gocode chat --model gpt54-mini    # GPT-5.4 Mini
-gocode chat --model gpt4o         # GPT-4o (legacy)
-gocode chat --model o3             # OpenAI o3
-gocode chat --model gemini        # Gemini 3.1 Pro
-gocode chat --model gemini-flash  # Gemini 3 Flash
-gocode chat --model grok          # Grok 4.20 Beta
-gocode chat --model codex         # Codex Mini
+deepcodex chat --model opus          # Claude Opus 4.6
+deepcodex chat --model sonnet        # Claude Sonnet 4.6
+deepcodex chat --model gpt5          # GPT-5.4
+deepcodex chat --model gpt54-mini    # GPT-5.4 Mini
+deepcodex chat --model gpt4o         # GPT-4o (legacy)
+deepcodex chat --model o3             # OpenAI o3
+deepcodex chat --model gemini        # Gemini 3.1 Pro
+deepcodex chat --model gemini-flash  # Gemini 3 Flash
+deepcodex chat --model grok          # Grok 4.20 Beta
+deepcodex chat --model codex         # Codex Mini
 
 # Full model IDs
-gocode chat --model claude-opus-4-6
-gocode chat --model gpt-5.4
-gocode chat --model gemini-3.1-pro-preview
-gocode chat --model grok-4.20-beta
+deepcodex chat --model claude-opus-4-6
+deepcodex chat --model gpt-5.4
+deepcodex chat --model gemini-3.1-pro-preview
+deepcodex chat --model grok-4.20-beta
 ```
 
 ### Model Alias Table
@@ -188,14 +188,14 @@ gocode chat --model grok-4.20-beta
 
 ### Auto-Detection
 
-If you don't specify `--model`, gocode defaults to `sonnet` (Claude Sonnet 4.6). The provider is auto-detected from the model name:
+If you don't specify `--model`, deepcodex defaults to `sonnet` (Claude Sonnet 4.6). The provider is auto-detected from the model name:
 
 - `claude*` → Anthropic
 - `gpt*`, `o1*`, `o3*`, `o4*`, `codex*` → OpenAI
 - `gemini*` → Google
 - `grok*` → xAI
 
-If the model name doesn't match any prefix, gocode checks which API key env vars are set and picks the first available.
+If the model name doesn't match any prefix, deepcodex checks which API key env vars are set and picks the first available.
 
 ---
 
@@ -222,7 +222,7 @@ This works with any OpenAI-compatible API (LiteLLM, Ollama, vLLM, etc.):
 ```bash
 export OPENAI_BASE_URL=http://localhost:11434/v1
 export OPENAI_API_KEY=ollama
-gocode chat --model llama3.1
+deepcodex chat --model llama3.1
 ```
 
 ---
@@ -230,9 +230,9 @@ gocode chat --model llama3.1
 ## How the Agent Loop Works
 
 1. You send a message
-2. gocode sends it to the LLM with your conversation history + available tools
+2. deepcodex sends it to the LLM with your conversation history + available tools
 3. The LLM responds with text and/or tool calls
-4. gocode executes each tool (file read, shell command, etc.)
+4. deepcodex executes each tool (file read, shell command, etc.)
 5. Tool results are sent back to the LLM
 6. Repeat until the LLM responds with just text (no more tool calls)
 

@@ -1,5 +1,5 @@
-// Package plugins provides a plugin system for gocode.
-// Plugins are JSON directories in .gocode/plugins/<name>/plugin.json.
+// Package plugins provides a plugin system for deepcodex.
+// Plugins are JSON directories in .deepcodex/plugins/<name>/plugin.json.
 package plugins
 
 import (

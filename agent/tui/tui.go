@@ -295,7 +295,7 @@ func (m Model) View() string {
 	// Header
 	modeStr := m.mode.String()
 	header := headerStyle.Width(w).Render(
-		fmt.Sprintf(" 🐹 gocode %s │ %s │ %s", m.config.Version, m.config.Model, modeStr),
+		fmt.Sprintf(" 🐹 deepcodex %s │ %s │ %s", m.config.Version, m.config.Model, modeStr),
 	)
 
 	// Help bar
@@ -528,7 +528,7 @@ func (m Model) handleSlashCommand(text string) (bubbletea.Model, bubbletea.Cmd) 
 		return m, nil
 
 	case lower == "/undo":
-		out, err := exec.Command("git", "stash", "push", "-m", "gocode-undo").CombinedOutput()
+		out, err := exec.Command("git", "stash", "push", "-m", "deepcodex-undo").CombinedOutput()
 		if err != nil {
 			m.messages = append(m.messages, ChatMessage{Role: "tool", Content: "Nothing to undo.", IsError: true})
 		} else {

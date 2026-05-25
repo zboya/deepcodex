@@ -24,7 +24,7 @@ type cronEntry struct {
 // ScheduleCronTool implements toolimpl.ToolExecutor for create/delete/list cron jobs.
 type ScheduleCronTool struct {
 	Scheduler *Scheduler
-	DataDir   string // path to .gocode directory for persisting cron.json
+	DataDir   string // path to .deepcodex directory for persisting cron.json
 }
 
 // ToolDef returns the tool definition for schedule_cron.
@@ -144,7 +144,7 @@ func (t *ScheduleCronTool) list() toolimpl.ToolResult {
 	return toolimpl.ToolResult{Success: true, Output: string(data)}
 }
 
-// persist writes the current scheduler state to .gocode/cron.json.
+// persist writes the current scheduler state to .deepcodex/cron.json.
 func (t *ScheduleCronTool) persist() error {
 	tasks := t.Scheduler.List()
 	entries := make([]cronEntry, len(tasks))

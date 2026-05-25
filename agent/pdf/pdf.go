@@ -96,7 +96,7 @@ func ExtractPages(path string, firstPage, lastPage int) (ExtractResult, error) {
 		return ExtractResult{}, fmt.Errorf("pdftoppm is not installed: install poppler-utils")
 	}
 
-	outputDir := filepath.Join(os.TempDir(), "gocode-pdf-"+uuid.New().String())
+	outputDir := filepath.Join(os.TempDir(), "deepcodex-pdf-"+uuid.New().String())
 	if err := os.MkdirAll(outputDir, 0o755); err != nil {
 		return ExtractResult{}, fmt.Errorf("create output dir: %w", err)
 	}

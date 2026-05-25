@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# entrypoint.sh — handles PR comment (@gocode mentions) and issue assignment triggers.
+# entrypoint.sh — handles PR comment (@deepcodex mentions) and issue assignment triggers.
 # Expects GITHUB_TOKEN, GITHUB_EVENT_PATH, GITHUB_REPOSITORY, and GOCODE_TRIGGER env vars.
 
 API_BASE="https://api.github.com/repos/${GITHUB_REPOSITORY}"
@@ -32,7 +32,7 @@ update_comment() {
 progress_comment() {
   local issue_number="$1"
   local title="$2"
-  local body="## 🤖 gocode: ${title}
+  local body="## 🤖 deepcodex: ${title}
 
 - [ ] Analyzing request
 - [ ] Planning changes
@@ -61,7 +61,7 @@ update_progress() {
   update_comment "$comment_id" "$updated_body"
 }
 
-# handle_pr_comment parses the event payload for @gocode mentions in PR comments.
+# handle_pr_comment parses the event payload for @deepcodex mentions in PR comments.
 handle_pr_comment() {
   local comment_body
   comment_body=$(jq -r '.comment.body // empty' "$GITHUB_EVENT_PATH")
@@ -71,9 +71,9 @@ handle_pr_comment() {
     exit 0
   fi
 
-  # Check for @gocode mention
-  if ! echo "$comment_body" | grep -qi "@gocode"; then
-    echo "Comment does not mention @gocode. Skipping."
+  # Check for @deepcodex mention
+  if ! echo "$comment_body" | grep -qi "@deepcodex"; then
+    echo "Comment does not mention @deepcodex. Skipping."
     exit 0
   fi
 
@@ -84,9 +84,9 @@ handle_pr_comment() {
     exit 1
   fi
 
-  # Strip the @gocode mention to get the prompt
+  # Strip the @deepcodex mention to get the prompt
   local prompt
-  prompt=$(echo "$comment_body" | sed 's/@gocode//gi' | xargs)
+  prompt=$(echo "$comment_body" | sed 's/@deepcodex//gi' | xargs)
 
   if [ -z "$prompt" ]; then
     prompt="Review this PR and provide feedback."
@@ -100,14 +100,14 @@ handle_pr_comment() {
   update_progress "$progress_id" "Planning changes" "$issue_number"
 
   local output
-  output=$(gocode prompt --output-format json "$prompt" 2>&1) || true
+  output=$(deepcodex prompt --output-format json "$prompt" 2>&1) || true
 
   update_progress "$progress_id" "Implementing changes" "$issue_number"
 
   # Post the result as a comment
   local result
   result=$(echo "$output" | jq -r '.result // "No result produced."' 2>/dev/null || echo "$output")
-  post_comment "$issue_number" "### gocode result
+  post_comment "$issue_number" "### deepcodex result
 
 ${result}"
 
@@ -150,13 +150,13 @@ ${issue_body}"
   update_progress "$progress_id" "Planning changes" "$issue_number"
 
   local output
-  output=$(gocode prompt --output-format json "$prompt" 2>&1) || true
+  output=$(deepcodex prompt --output-format json "$prompt" 2>&1) || true
 
   update_progress "$progress_id" "Implementing changes" "$issue_number"
 
   local result
   result=$(echo "$output" | jq -r '.result // "No result produced."' 2>/dev/null || echo "$output")
-  post_comment "$issue_number" "### gocode result
+  post_comment "$issue_number" "### deepcodex result
 
 ${result}"
 

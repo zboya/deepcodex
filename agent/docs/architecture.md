@@ -2,15 +2,15 @@
 
 [← Back to README](../README.md)
 
-gocode is built from 26 internal packages with clean interfaces and zero external runtime dependencies.
+deepcodex is built from 26 internal packages with clean interfaces and zero external runtime dependencies.
 
 ---
 
 ## Package Structure
 
 ```
-gocode/
-├── cmd/gocode/main.go          # CLI entrypoint — 23 subcommands
+deepcodex/
+├── cmd/deepcodex/main.go          # CLI entrypoint — 23 subcommands
 ├── data/
 │   ├── commands.json            # Embedded command registry (go:embed)
 │   ├── tools.json               # Embedded tool definitions
@@ -51,10 +51,10 @@ gocode/
 
 ```mermaid
 graph TB
-    subgraph CLI["cmd/gocode — 23 commands"]
-        Chat["gocode chat"]
-        Prompt["gocode prompt"]
-        MCPServe["gocode mcp-serve"]
+    subgraph CLI["cmd/deepcodex — 23 commands"]
+        Chat["deepcodex chat"]
+        Prompt["deepcodex prompt"]
+        MCPServe["deepcodex mcp-serve"]
         Other["21 other commands"]
     end
 

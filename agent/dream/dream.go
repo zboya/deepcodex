@@ -40,9 +40,9 @@ type Dreamer struct {
 	mu           sync.Mutex
 	router       *apiclient.ModelRouter
 	executor     agent.ToolExecutor
-	memDir       string // .gocode/memory/
+	memDir       string // .deepcodex/memory/
 	sessDir      string // .port_sessions/
-	lockPath     string // .gocode/dream.lock
+	lockPath     string // .deepcodex/dream.lock
 	lastRun      time.Time
 	running      bool
 	idleTimer    *time.Timer
@@ -56,9 +56,9 @@ func NewDreamer(router *apiclient.ModelRouter, executor agent.ToolExecutor) *Dre
 	return &Dreamer{
 		router:       router,
 		executor:     executor,
-		memDir:       filepath.Join(".gocode", "memory"),
+		memDir:       filepath.Join(".deepcodex", "memory"),
 		sessDir:      ".port_sessions",
-		lockPath:     filepath.Join(".gocode", "dream.lock"),
+		lockPath:     filepath.Join(".deepcodex", "dream.lock"),
 		idleDuration: DefaultIdleDuration,
 		stopCh:       make(chan struct{}),
 	}
@@ -161,7 +161,7 @@ func (d *Dreamer) ShouldDream() bool {
 }
 
 // Dream runs a single consolidation cycle. It acquires a file lock to
-// prevent concurrent dreams (e.g., multiple gocode instances).
+// prevent concurrent dreams (e.g., multiple deepcodex instances).
 // Returns the dream summary or an error.
 func (d *Dreamer) Dream(ctx context.Context) (string, error) {
 	d.mu.Lock()

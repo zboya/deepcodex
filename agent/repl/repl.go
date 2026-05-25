@@ -237,8 +237,8 @@ func (r *REPL) Run(ctx context.Context) error {
 				fmt.Fprintln(r.writer, "Nothing to redo.")
 				continue
 			}
-			if !strings.Contains(string(out), "gocode-undo") {
-				fmt.Fprintln(r.writer, "No gocode undo stash found.")
+			if !strings.Contains(string(out), "deepcodex-undo") {
+				fmt.Fprintln(r.writer, "No deepcodex undo stash found.")
 				continue
 			}
 			if popErr := exec.Command("git", "stash", "pop").Run(); popErr != nil {
@@ -254,7 +254,7 @@ func (r *REPL) Run(ctx context.Context) error {
 			fmt.Fprintln(r.writer, "  3. Google (Gemini)     — export GEMINI_API_KEY=...")
 			fmt.Fprintln(r.writer, "  4. xAI (Grok)          — export XAI_API_KEY=...")
 			fmt.Fprintln(r.writer, "")
-			fmt.Fprintln(r.writer, "Set your API key and restart gocode.")
+			fmt.Fprintln(r.writer, "Set your API key and restart deepcodex.")
 			continue
 		case CmdShare:
 			data, err := json.MarshalIndent(r.runtime.GetSession(), "", "  ")
@@ -262,13 +262,13 @@ func (r *REPL) Run(ctx context.Context) error {
 				fmt.Fprintf(r.writer, "Error exporting session: %v\n", err)
 				continue
 			}
-			tmpFile := filepath.Join(os.TempDir(), "gocode-session.json")
+			tmpFile := filepath.Join(os.TempDir(), "deepcodex-session.json")
 			if writeErr := os.WriteFile(tmpFile, data, 0644); writeErr != nil {
 				fmt.Fprintf(r.writer, "Error writing file: %v\n", writeErr)
 				continue
 			}
 			if _, lookErr := exec.LookPath("gh"); lookErr == nil {
-				out, ghErr := exec.Command("gh", "gist", "create", tmpFile, "--desc", "gocode session").Output()
+				out, ghErr := exec.Command("gh", "gist", "create", tmpFile, "--desc", "deepcodex session").Output()
 				if ghErr == nil {
 					fmt.Fprintf(r.writer, "Shared: %s\n", strings.TrimSpace(string(out)))
 					continue
@@ -288,10 +288,10 @@ func (r *REPL) Run(ctx context.Context) error {
 			exec.Command("git", "add", "-A").Run()
 			// Re-read staged stat after add -A for the commit message
 			finalStat, _ := exec.Command("git", "diff", "--cached", "--stat").Output()
-			msg := "gocode: auto-commit"
+			msg := "deepcodex: auto-commit"
 			if lines := strings.Split(strings.TrimSpace(string(finalStat)), "\n"); len(lines) > 0 && lines[0] != "" {
 				last := strings.TrimSpace(lines[len(lines)-1])
-				msg = "gocode: " + last
+				msg = "deepcodex: " + last
 			}
 			msg += "\n\nCo-Authored-By: gocoder6969 <gocoder6969@users.noreply.github.com>"
 			out, commitErr := exec.Command("git", "commit", "-m", msg).CombinedOutput()
@@ -617,7 +617,7 @@ func (r *REPL) handleModelCommand(input string) {
 		fmt.Fprintf(r.writer, "Current model: %s%s%s\n", cGreen+ansiBold, r.config.Model, ansiReset)
 		return
 	}
-	fmt.Fprintf(r.writer, "Model switching mid-session requires restart. Start a new session with: gocode chat --model %s\n", arg)
+	fmt.Fprintf(r.writer, "Model switching mid-session requires restart. Start a new session with: deepcodex chat --model %s\n", arg)
 }
 
 // handleDiffCommand runs git diff and prints the output.
@@ -637,7 +637,7 @@ func (r *REPL) handleDiffCommand() {
 
 // handleMemoryCommand processes the /memory slash command.
 func (r *REPL) handleMemoryCommand(input string) {
-	store := memory.NewStore(filepath.Join(".gocode", "memory.json"))
+	store := memory.NewStore(filepath.Join(".deepcodex", "memory.json"))
 	_ = store.Load()
 	arg := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(input), "/memory"))
 	if arg == "" {
@@ -674,7 +674,7 @@ func (r *REPL) handleMemoryCommand(input string) {
 
 // handleTasksCommand processes the /tasks slash command.
 func (r *REPL) handleTasksCommand(input string) {
-	store := tasks.NewStore(filepath.Join(".gocode", "tasks.json"))
+	store := tasks.NewStore(filepath.Join(".deepcodex", "tasks.json"))
 	_ = store.Load()
 	arg := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(input), "/tasks"))
 	if arg == "" {
@@ -857,7 +857,7 @@ func (r *REPL) undoViaStash() {
 		return
 	}
 	fmt.Fprintf(r.writer, "Stashing:\n%s", string(out))
-	if stashErr := exec.Command("git", "stash", "push", "-m", "gocode-undo").Run(); stashErr != nil {
+	if stashErr := exec.Command("git", "stash", "push", "-m", "deepcodex-undo").Run(); stashErr != nil {
 		fmt.Fprintf(r.writer, "Error stashing changes: %v\n", stashErr)
 	} else {
 		fmt.Fprintln(r.writer, "Changes stashed (use /redo to restore).")
@@ -1070,7 +1070,7 @@ func BuildSystemPrompt(tools []apitypes.ToolDef) string {
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf(`You are gocode, an interactive CLI tool that helps users with software engineering tasks. Use the instructions below and the tools available to you to assist the user.
+	sb.WriteString(fmt.Sprintf(`You are deepcodex, an interactive CLI tool that helps users with software engineering tasks. Use the instructions below and the tools available to you to assist the user.
 
 IMPORTANT: You should be proactive in accomplishing the task, not reactive. Do not wait for the user to ask you to do something that you can anticipate.
 
@@ -1165,7 +1165,7 @@ If the first search doesn't give a clear answer, you MUST search again with a di
 	}
 
 	// Inject persistent memories
-	memStore := memory.NewStore(filepath.Join(".gocode", "memory.json"))
+	memStore := memory.NewStore(filepath.Join(".deepcodex", "memory.json"))
 	_ = memStore.Load()
 	if mems := memStore.Render(); mems != "" {
 		sb.WriteString("\n\n# Persistent Memory\n\n" + mems)

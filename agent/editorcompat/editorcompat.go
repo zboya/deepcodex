@@ -49,7 +49,7 @@ type EditorConfig struct {
 func LoadEditorConfig() EditorConfig {
 	editor := DetectEditor()
 	cwd, _ := os.Getwd()
-	configDir := filepath.Join(cwd, ".gocode")
+	configDir := filepath.Join(cwd, ".deepcodex")
 	return EditorConfig{
 		Editor:       editor,
 		WorkspaceDir: cwd,

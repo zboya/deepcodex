@@ -25,7 +25,7 @@ type Store struct {
 // NewStore creates a new task store at the given path.
 func NewStore(path string) *Store {
 	if path == "" {
-		path = filepath.Join(".gocode", "tasks.json")
+		path = filepath.Join(".deepcodex", "tasks.json")
 	}
 	return &Store{path: path, next: 1}
 }

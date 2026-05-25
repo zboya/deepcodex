@@ -12,11 +12,16 @@ interface InputAreaProps {
   value: string;
   onChange: (v: string) => void;
   onSubmit: () => void;
+  disabled?: boolean;
+  compact?: boolean;
 }
 
-const InputArea: React.FC<InputAreaProps> = ({ value, onChange, onSubmit }) => {
+const InputArea: React.FC<InputAreaProps> = ({ value, onChange, onSubmit, disabled, compact }) => {
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    // IME 输入法合成期间的 Enter 不当作发送
+    // @ts-ignore - isComposing 标准属性，但 React 类型有时缺失
+    if (e.nativeEvent && (e.nativeEvent as any).isComposing) return;
+    if (e.key === 'Enter' && !e.shiftKey && !disabled) {
       e.preventDefault();
       onSubmit();
     }
@@ -27,11 +32,11 @@ const InputArea: React.FC<InputAreaProps> = ({ value, onChange, onSubmit }) => {
       <div className="input-card">
         <textarea
           className="input-textarea"
-          placeholder="尽管问"
+          placeholder={compact ? '要求后续变更' : '尽管问'}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={handleKeyDown}
-          rows={2}
+          rows={compact ? 1 : 2}
         />
 
         <div className="input-toolbar">
@@ -57,7 +62,7 @@ const InputArea: React.FC<InputAreaProps> = ({ value, onChange, onSubmit }) => {
           <button
             className="send-btn"
             onClick={onSubmit}
-            disabled={!value.trim()}
+            disabled={!value.trim() || disabled}
             title="发送 (Enter)"
           >
             <ArrowUp size={16} />
@@ -65,12 +70,14 @@ const InputArea: React.FC<InputAreaProps> = ({ value, onChange, onSubmit }) => {
         </div>
       </div>
 
-      {/* 工作目录条 */}
-      <button className="workspace-chip">
-        <FolderPlus size={14} />
-        <span>进入项目工作</span>
-        <ChevronDown size={12} />
-      </button>
+      {/* 工作目录条（仅欢迎页显示） */}
+      {!compact && (
+        <button className="workspace-chip">
+          <FolderPlus size={14} />
+          <span>进入项目工作</span>
+          <ChevronDown size={12} />
+        </button>
+      )}
     </div>
   );
 };

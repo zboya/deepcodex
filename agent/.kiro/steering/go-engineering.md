@@ -2,9 +2,9 @@
 inclusion: auto
 ---
 
-# Go Engineering Standards — gocode
+# Go Engineering Standards — deepcodex
 
-You are working on **gocode**, a high-performance AI coding agent written in Go. Single binary, zero runtime dependencies, 26 internal packages, 200+ model support across 11 providers.
+You are working on **deepcodex**, a high-performance AI coding agent written in Go. Single binary, zero runtime dependencies, 26 internal packages, 200+ model support across 11 providers.
 
 ## Architecture Principles
 
@@ -30,8 +30,8 @@ You are working on **gocode**, a high-performance AI coding agent written in Go.
 
 - Tool implementations go in `internal/toolimpl/` and implement the `ToolExecutor` interface.
 - Provider implementations go in `internal/apiclient/` and implement the `Provider` interface.
-- New CLI subcommands are added in `cmd/gocode/main.go` using Cobra.
-- Skills are JSON files in `.gocode/skills/` with `name`, `system_prompt`, `tool_permissions`.
+- New CLI subcommands are added in `cmd/deepcodex/main.go` using Cobra.
+- Skills are JSON files in `.deepcodex/skills/` with `name`, `system_prompt`, `tool_permissions`.
 - The `ConversationRuntime` in `internal/agent/runtime.go` is the core agent loop — understand it before touching agent behavior.
 - The `FallbackProvider` and `ModelRouter` in `internal/apiclient/` handle model routing and failover.
 - Session persistence uses `internal/session/` with atomic writes.

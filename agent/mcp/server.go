@@ -89,7 +89,7 @@ type MCPServer struct {
 	initialized  bool
 }
 
-// NewMCPServer creates a new MCP-compliant server with full gocode capabilities.
+// NewMCPServer creates a new MCP-compliant server with full deepcodex capabilities.
 func NewMCPServer(
 	toolReg *tools.ToolRegistry,
 	toolImpl *toolimpl.Registry,
@@ -180,7 +180,7 @@ func (s *MCPServer) handleInitialize(req MCPRequest) *MCPResponse {
 			Tools: &ToolsCapability{ListChanged: false},
 		},
 		ServerInfo: ServerInfo{
-			Name:    "gocode",
+			Name:    "deepcodex",
 			Version: s.Version,
 		},
 	}
@@ -193,7 +193,7 @@ func (s *MCPServer) handleInitialize(req MCPRequest) *MCPResponse {
 }
 
 func (s *MCPServer) handleToolsList(req MCPRequest) *MCPResponse {
-	// Combine file-system tools from registry + gocode's unique orchestration tools
+	// Combine file-system tools from registry + deepcodex's unique orchestration tools
 	defs := s.ToolRegistry.GetToolDefinitions()
 	defs = append(defs, s.gocodeToolDefinitions()...)
 
@@ -222,7 +222,7 @@ func (s *MCPServer) handleToolsCall(req MCPRequest) *MCPResponse {
 		}
 	}
 
-	// Try gocode's unique tools first
+	// Try deepcodex's unique tools first
 	if result := s.executeGocodeTool(name, args); result != nil {
 		return result
 	}
@@ -269,10 +269,10 @@ func (s *MCPServer) handleToolsCall(req MCPRequest) *MCPResponse {
 }
 
 // =============================================================================
-// gocode UNIQUE TOOLS — Things no IDE has natively
+// deepcodex UNIQUE TOOLS — Things no IDE has natively
 // =============================================================================
 
-// gocodeToolDefinitions returns MCP tool definitions for gocode's unique capabilities.
+// gocodeToolDefinitions returns MCP tool definitions for deepcodex's unique capabilities.
 func (s *MCPServer) gocodeToolDefinitions() []models.ToolDefinition {
 	return []models.ToolDefinition{
 		{
@@ -334,7 +334,7 @@ func (s *MCPServer) gocodeToolDefinitions() []models.ToolDefinition {
 		},
 		{
 			Name:        "gocode_list_commands",
-			Description: "List all registered commands in gocode's command registry, with optional search. Returns command names, responsibilities, and source hints. Use this to discover what operations gocode supports.",
+			Description: "List all registered commands in deepcodex's command registry, with optional search. Returns command names, responsibilities, and source hints. Use this to discover what operations deepcodex supports.",
 			InputSchema: models.InputSchema{
 				Type: "object",
 				Properties: map[string]models.SchemaProperty{
@@ -356,7 +356,7 @@ func (s *MCPServer) gocodeToolDefinitions() []models.ToolDefinition {
 	}
 }
 
-// executeGocodeTool handles gocode's unique tools. Returns nil if the tool name isn't a gocode tool.
+// executeGocodeTool handles deepcodex's unique tools. Returns nil if the tool name isn't a deepcodex tool.
 func (s *MCPServer) executeGocodeTool(name string, args map[string]interface{}) *MCPResponse {
 	nameLower := strings.ToLower(name)
 	switch nameLower {
@@ -451,7 +451,7 @@ func (s *MCPServer) execSessionSave(args map[string]interface{}) *MCPResponse {
 		return s.textResult(nil, true, "Error: missing required param: session_id")
 	}
 	// For now return an acknowledgment. Full implementation would persist query engine state.
-	return s.textResult(nil, false, fmt.Sprintf("Session `%s` — save acknowledged. Use gocode CLI `gocode load-session %s` to restore.", sessionID, sessionID))
+	return s.textResult(nil, false, fmt.Sprintf("Session `%s` — save acknowledged. Use deepcodex CLI `deepcodex load-session %s` to restore.", sessionID, sessionID))
 }
 
 func (s *MCPServer) execSessionLoad(args map[string]interface{}) *MCPResponse {
@@ -544,7 +544,7 @@ func (s *MCPServer) errorResponse(id interface{}, code int, message string, data
 
 // textResult creates a standard MCP tools/call response with text content.
 // The id field is filled by the caller via handleToolsCall. We pass nil here
-// and it gets set by the response routing (since gocode tools return the full MCPResponse).
+// and it gets set by the response routing (since deepcodex tools return the full MCPResponse).
 func (s *MCPServer) textResult(id interface{}, isError bool, text string) *MCPResponse {
 	return &MCPResponse{
 		JSONRPC: "2.0",
@@ -620,7 +620,7 @@ func (s *MCPServer) ServeStdioWithReaderWriter(r io.Reader, w io.Writer) error {
 			continue
 		}
 
-		// Patch the ID for gocode tools (they return nil ID)
+		// Patch the ID for deepcodex tools (they return nil ID)
 		if resp.ID == nil {
 			resp.ID = req.ID
 		}

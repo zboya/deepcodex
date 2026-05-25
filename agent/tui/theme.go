@@ -28,7 +28,7 @@ type KeybindConfig struct {
 
 // BuiltinThemes maps theme names to their definitions.
 var BuiltinThemes = map[string]Theme{
-	"golang": {Name: "golang", Primary: "38", Secondary: "37", Accent: "168", Background: "234", Text: "255", Dim: "245"},
+	"golang":  {Name: "golang", Primary: "38", Secondary: "37", Accent: "168", Background: "234", Text: "255", Dim: "245"},
 	"monokai": {Name: "monokai", Primary: "208", Secondary: "114", Accent: "203", Background: "235", Text: "255", Dim: "245"},
 	"dracula": {Name: "dracula", Primary: "141", Secondary: "84", Accent: "212", Background: "236", Text: "255", Dim: "245"},
 	"nord":    {Name: "nord", Primary: "110", Secondary: "109", Accent: "131", Background: "236", Text: "255", Dim: "245"},
@@ -39,10 +39,10 @@ func DefaultKeybinds() KeybindConfig {
 	return KeybindConfig{Send: "enter", Mode: "tab", Diff: "ctrl+d", Cancel: "escape", Quit: "ctrl+c"}
 }
 
-// LoadTheme loads a theme from .gocode/theme.json or returns the named built-in.
+// LoadTheme loads a theme from .deepcodex/theme.json or returns the named built-in.
 func LoadTheme(name string) Theme {
 	// Try loading from config file
-	cfgPath := filepath.Join(".gocode", "theme.json")
+	cfgPath := filepath.Join(".deepcodex", "theme.json")
 	if data, err := os.ReadFile(cfgPath); err == nil {
 		var t Theme
 		if err := json.Unmarshal(data, &t); err == nil {
@@ -84,10 +84,10 @@ func LoadTheme(name string) Theme {
 	return BuiltinThemes["golang"]
 }
 
-// LoadKeybinds loads key bindings from .gocode/keybinds.json or returns defaults.
+// LoadKeybinds loads key bindings from .deepcodex/keybinds.json or returns defaults.
 func LoadKeybinds() KeybindConfig {
 	kb := DefaultKeybinds()
-	cfgPath := filepath.Join(".gocode", "keybinds.json")
+	cfgPath := filepath.Join(".deepcodex", "keybinds.json")
 	if data, err := os.ReadFile(cfgPath); err == nil {
 		json.Unmarshal(data, &kb)
 	}

@@ -73,7 +73,7 @@ func TestRegistryList(t *testing.T) {
 
 func TestLoadUserStyles(t *testing.T) {
 	dir := t.TempDir()
-	stylesDir := filepath.Join(dir, ".gocode", "output-styles")
+	stylesDir := filepath.Join(dir, ".deepcodex", "output-styles")
 	if err := os.MkdirAll(stylesDir, 0o755); err != nil {
 		t.Fatal(err)
 	}

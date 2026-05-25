@@ -69,13 +69,13 @@ type Options struct {
 	// defaults to AllowAllPrompter.
 	Prompter agent.PermissionPrompter
 
-	// PluginsDir is the directory for plugins. Default: ".gocode/plugins".
+	// PluginsDir is the directory for plugins. Default: ".deepcodex/plugins".
 	PluginsDir string
 
-	// HooksConfigPath is the path to hooks.json. Default: ".gocode/hooks.json".
+	// HooksConfigPath is the path to hooks.json. Default: ".deepcodex/hooks.json".
 	HooksConfigPath string
 
-	// MCPConfigPath is the path to mcp.json. Default: ".gocode/mcp.json".
+	// MCPConfigPath is the path to mcp.json. Default: ".deepcodex/mcp.json".
 	MCPConfigPath string
 
 	// SkillsDir is the base directory for skills. Default: "" (uses default loader).
@@ -105,13 +105,13 @@ func New(opts Options) (*Harness, error) {
 		opts.MaxTurns = 30
 	}
 	if opts.PluginsDir == "" {
-		opts.PluginsDir = filepath.Join(".gocode", "plugins")
+		opts.PluginsDir = filepath.Join(".deepcodex", "plugins")
 	}
 	if opts.HooksConfigPath == "" {
-		opts.HooksConfigPath = filepath.Join(".gocode", "hooks.json")
+		opts.HooksConfigPath = filepath.Join(".deepcodex", "hooks.json")
 	}
 	if opts.MCPConfigPath == "" {
-		opts.MCPConfigPath = filepath.Join(".gocode", "mcp.json")
+		opts.MCPConfigPath = filepath.Join(".deepcodex", "mcp.json")
 	}
 	if opts.NoProjectConfig {
 		repl.SkipProjectConfig = true
