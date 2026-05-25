@@ -21,7 +21,6 @@ import (
 	"github.com/zboya/deepcodex/agent/apiclient"
 	"github.com/zboya/deepcodex/agent/apiserver"
 	"github.com/zboya/deepcodex/agent/apitypes"
-	"github.com/zboya/deepcodex/agent/astgrep"
 	"github.com/zboya/deepcodex/agent/authkeys"
 	"github.com/zboya/deepcodex/agent/bootstrap"
 	"github.com/zboya/deepcodex/agent/bridge"
@@ -32,15 +31,11 @@ import (
 	"github.com/zboya/deepcodex/agent/data"
 	"github.com/zboya/deepcodex/agent/editorcompat"
 	"github.com/zboya/deepcodex/agent/execution"
-	"github.com/zboya/deepcodex/agent/hashline"
-	"github.com/zboya/deepcodex/agent/hooks"
-	"github.com/zboya/deepcodex/agent/initdeep"
+	"github.com/zboya/deepcodex/agent/harness"
 	"github.com/zboya/deepcodex/agent/manifest"
 	"github.com/zboya/deepcodex/agent/mcp"
-	"github.com/zboya/deepcodex/agent/mcpclient"
 	"github.com/zboya/deepcodex/agent/migrations"
 	"github.com/zboya/deepcodex/agent/modes"
-	"github.com/zboya/deepcodex/agent/orchestrator"
 	"github.com/zboya/deepcodex/agent/permissions"
 	"github.com/zboya/deepcodex/agent/plugins"
 	"github.com/zboya/deepcodex/agent/profiles"
@@ -52,7 +47,6 @@ import (
 	"github.com/zboya/deepcodex/agent/skills"
 	"github.com/zboya/deepcodex/agent/structout"
 	"github.com/zboya/deepcodex/agent/swarm"
-	"github.com/zboya/deepcodex/agent/tmux"
 	"github.com/zboya/deepcodex/agent/toolimpl"
 	"github.com/zboya/deepcodex/agent/toolpool"
 	"github.com/zboya/deepcodex/agent/tools"
@@ -76,101 +70,6 @@ type stdRecoveryLogger struct{}
 
 func (stdRecoveryLogger) OnRecovery(action string, detail string) {
 	log.Printf("[recovery] %s: %s", action, detail)
-}
-
-// wireAdvancedTools registers Phase 1 hashline/context-aware wrappers and
-// Phase 3 tools (ast-grep, tmux, MCP client) into the tool registry.
-// Returns a cleanup function that should be deferred.
-func wireAdvancedTools(toolImpl *toolimpl.Registry, hashlineEnabled bool) func() {
-	// Phase 1: hashline wrappers (conditional)
-	if hashlineEnabled {
-		hashline.RegisterHashlineTools(toolImpl)
-	}
-
-	// Phase 1: context-aware read (always enabled — wraps filereadtool with AGENTS.md)
-	initdeep.RegisterContextAwareRead(toolImpl)
-
-	// Phase 3: ast-grep tool
-	astgrep.RegisterAstGrepTool(toolImpl)
-
-	// Phase 3: tmux tools
-	tmuxMgr := tmux.NewManager()
-	tmux.RegisterTmuxTools(toolImpl, tmuxMgr)
-
-	// Phase 3: MCP client tools (only if user has a .gocode/mcp.json config)
-	mcpConfigPath := filepath.Join(".gocode", "mcp.json")
-	if _, statErr := os.Stat(mcpConfigPath); statErr == nil {
-		mcpMgr, err := mcpclient.NewManager(mcpConfigPath)
-		if err != nil {
-			log.Printf("[mcpclient] failed to create manager: %v", err)
-			return tmuxMgr.KillAll
-		}
-
-		// Best-effort connect — failures are logged, not fatal
-		if connectErr := mcpMgr.ConnectAll(); connectErr != nil {
-			log.Printf("[mcpclient] %v", connectErr)
-		}
-
-		// Register discovered MCP tools in the tool registry
-		for _, t := range mcpMgr.ListTools() {
-			toolName := t.Name
-			toolImpl.Set(toolName, &mcpToolAdapter{mgr: mcpMgr, toolName: toolName})
-		}
-
-		return func() {
-			tmuxMgr.KillAll()
-			mcpMgr.Close()
-		}
-	}
-
-	return tmuxMgr.KillAll
-}
-
-// mcpToolAdapter adapts an MCP client tool call to the toolimpl.ToolExecutor interface.
-type mcpToolAdapter struct {
-	mgr      *mcpclient.Manager
-	toolName string
-}
-
-func (a *mcpToolAdapter) Execute(params map[string]interface{}) toolimpl.ToolResult {
-	output, err := a.mgr.CallTool(a.toolName, params)
-	if err != nil {
-		return toolimpl.ToolResult{Success: false, Error: err.Error()}
-	}
-	return toolimpl.ToolResult{Success: true, Output: output}
-}
-
-// orchestratorToolAdapter adapts orchestrator delegation tools to the toolimpl.ToolExecutor interface.
-type orchestratorToolAdapter struct {
-	orch     *orchestrator.Orchestrator
-	toolName string
-}
-
-func (a *orchestratorToolAdapter) Execute(params map[string]interface{}) toolimpl.ToolResult {
-	result := a.orch.Execute(a.toolName, params)
-	if result.IsError {
-		return toolimpl.ToolResult{Success: false, Error: result.Output}
-	}
-	return toolimpl.ToolResult{Success: true, Output: result.Output}
-}
-
-// buildFallbackProvider wraps a single resolved provider into a FallbackProvider
-// with a chain of one entry. Users can configure additional entries via config later.
-func buildFallbackProvider(provider apiclient.Provider, model string) *apiclient.FallbackProvider {
-	return apiclient.NewFallbackProvider([]apiclient.FallbackEntry{
-		{Model: model, Provider: provider},
-	}, nil)
-}
-
-// buildModelRouter creates a ModelRouter that maps all categories to the same
-// FallbackProvider. This is the default single-model configuration.
-func buildModelRouter(fp *apiclient.FallbackProvider) *apiclient.ModelRouter {
-	return apiclient.NewModelRouter(map[apiclient.TaskCategory]*apiclient.FallbackProvider{
-		apiclient.CategoryDeep:              fp,
-		apiclient.CategoryQuick:             fp,
-		apiclient.CategoryVisualEngineering: fp,
-		apiclient.CategoryUltrabrain:        fp,
-	})
 }
 
 func main() {
@@ -659,44 +558,49 @@ func main() {
 				model = apiclient.RecommendModel(goal)
 			}
 
-			permMode := agent.WorkspaceWrite
-			if skipPerms {
-				permMode = agent.DangerFullAccess
-			}
-
 			if noProjectConfig {
 				repl.SkipProjectConfig = true
 			}
 
-			provider, resolvedModel, err := apiclient.ResolveProvider(model, apiKey)
-			if err != nil {
-				return fmt.Errorf("resolving provider: %w", err)
-			}
-
-			// After resolving the model, set model-aware max tokens if user didn't override
+			// Determine max-tokens override
+			harnessMaxTokens := maxTokens
 			if !cmd.Flags().Changed("max-tokens") {
-				maxTokens = apiclient.MaxTokensForProvider(provider.Kind(), resolvedModel)
+				harnessMaxTokens = 0 // let harness auto-detect
 			}
 
-			// Phase 1: wrap provider with FallbackProvider and ModelRouter
-			fp := buildFallbackProvider(provider, resolvedModel)
-			router := buildModelRouter(fp)
+			// Terminal prompter for permission checks
+			trustedStore := agent.NewTrustedToolStore("")
+			_ = trustedStore.Load()
+			prompter := &repl.TerminalPermissionPrompter{
+				Scanner: bufio.NewScanner(os.Stdin),
+				Writer:  os.Stdout,
+				Trusted: trustedStore,
+			}
+			toolCb := &repl.TerminalToolCallback{Writer: os.Stdout}
 
-			toolImpl := toolimpl.NewRegistry()
+			// Use harness for core initialization
+			h, err := harness.New(harness.Options{
+				Model:           model,
+				APIKey:          apiKey,
+				MaxTurns:        maxTurns,
+				MaxTokens:       harnessMaxTokens,
+				SkillName:       skillName,
+				SkipPermissions: skipPerms,
+				HashlineEnabled: hashlineEnabled,
+				AllowedTools:    allowedTools,
+				DisallowedTools: disallowedTools,
+				NoProjectConfig: noProjectConfig,
+				ToolCallback:    toolCb,
+				Prompter:        prompter,
+			})
+			if err != nil {
+				return err
+			}
+			defer h.Close()
 
-			// Phase 1 + Phase 3: register advanced tools (hashline, context-aware read, ast-grep, tmux, MCP client)
-			cleanup := wireAdvancedTools(toolImpl, hashlineEnabled)
-			defer cleanup()
+			resolvedModel := h.Model
 
-			executor := agent.NewRegistryExecutor(toolImpl, toolReg)
-
-			// Phase 2: create Orchestrator with ModelRouter and executor,
-			// then register its delegation tools in the tool registry.
-			orch := orchestrator.NewOrchestrator(router, executor)
-			toolImpl.Set("orchestrator_delegate", &orchestratorToolAdapter{orch: orch, toolName: "orchestrator_delegate"})
-			toolImpl.Set("orchestrator_delegate_bg", &orchestratorToolAdapter{orch: orch, toolName: "orchestrator_delegate_bg"})
-
-			// Cron scheduler: create, load persisted schedules, register tool, start
+			// CLI-specific tools: cron scheduler
 			cronDataDir := filepath.Join(".gocode")
 			cronScheduler := cron.NewScheduler(func(task *cron.Task) {
 				log.Printf("[cron] fired: %s — %s", task.ID, task.Prompt)
@@ -706,41 +610,22 @@ func main() {
 			} else if n > 0 {
 				log.Printf("[cron] loaded %d persisted schedule(s)", n)
 			}
-			cron.RegisterCronTool(toolImpl, cronScheduler, cronDataDir)
+			cron.RegisterCronTool(h.ToolImpl, cronScheduler, cronDataDir)
 			defer cronScheduler.StopAll()
 
-			// Swarm: create manager and register send_agent_message tool
+			// CLI-specific tools: swarm
 			swarmMgr := swarm.NewSwarmManager(10)
-			swarm.RegisterSwarmTool(toolImpl, swarmMgr, "main")
+			swarm.RegisterSwarmTool(h.ToolImpl, swarmMgr, "main")
 
-			// Phase 2: load skills on startup
+			// Load skills for REPL/TUI display
 			skillLoader := skills.NewSkillLoader("")
 			loadedSkills, skillErrs := skillLoader.LoadAll()
 			for _, e := range skillErrs {
 				log.Printf("[skills] %v", e)
 			}
 
-			systemPrompt := repl.BuildSystemPrompt(executor.ListTools())
-
-			// If --skill flag is provided, prepend the skill's system prompt
-			if skillName != "" {
-				sk, ok := skillLoader.GetSkill(skillName)
-				if !ok {
-					return fmt.Errorf("unknown skill: %s", skillName)
-				}
-				systemPrompt = sk.SystemPrompt + "\n\n" + systemPrompt
-			}
-
-			// Append tool allow/disallow info to system prompt
-			if len(allowedTools) > 0 {
-				systemPrompt += fmt.Sprintf("\n\n# Allowed Tools\nOnly use these tools: %s\n", strings.Join(allowedTools, ", "))
-			}
-			if len(disallowedTools) > 0 {
-				systemPrompt += fmt.Sprintf("\n\n# Disallowed Tools\nDo NOT use these tools: %s\n", strings.Join(disallowedTools, ", "))
-			}
-
 			if printPrompt {
-				fmt.Println(systemPrompt)
+				fmt.Println(repl.BuildSystemPrompt(h.Executor.ListTools()))
 				return nil
 			}
 
@@ -748,55 +633,8 @@ func main() {
 				log.Printf("[verbose] model=%s maxTurns=%d maxTokens=%d", resolvedModel, maxTurns, maxTokens)
 			}
 
-			// Load trusted tools store
-			trustedStore := agent.NewTrustedToolStore("")
-			_ = trustedStore.Load()
-
-			prompter := &repl.TerminalPermissionPrompter{
-				Scanner: bufio.NewScanner(os.Stdin),
-				Writer:  os.Stdout,
-				Trusted: trustedStore,
-			}
-
-			// Use FallbackProvider (which implements Provider) for the runtime
-			toolCb := &repl.TerminalToolCallback{Writer: os.Stdout}
-
-			// Load plugins and create hook runner
-			pm := plugins.NewPluginManager(filepath.Join(".gocode", "plugins"))
-			loadedPlugins, pluginErrs := pm.LoadAll()
-			for _, e := range pluginErrs {
-				log.Printf("[plugins] %v", e)
-			}
-			hookRunner := plugins.NewPluginHookRunner(loadedPlugins)
-
-			// Wrap with ShellHookRunner if .gocode/hooks.json exists
-			var hooksRunner agent.HookRunner = hookRunner
-			hooksConfigPath := filepath.Join(".gocode", "hooks.json")
-			if _, statErr := os.Stat(hooksConfigPath); statErr == nil {
-				shellRunner, shellErr := hooks.NewShellHookRunner(hooksConfigPath, hookRunner)
-				if shellErr != nil {
-					log.Printf("[hooks] failed to load shell hooks: %v", shellErr)
-				} else {
-					hooksRunner = shellRunner
-				}
-			}
-
-			rt := agent.NewConversationRuntime(agent.RuntimeOptions{
-				Provider:      fp,
-				Executor:      executor,
-				Model:         resolvedModel,
-				MaxTokens:     maxTokens,
-				MaxIterations: maxTurns,
-				SystemPrompt:  systemPrompt,
-				PermMode:      permMode,
-				Prompter:      prompter,
-				Trusted:       trustedStore,
-				ToolCb:        toolCb,
-				Hooks:         hooksRunner,
-			})
-
 			// Phase 1: wrap runtime with SessionRecoveryManager
-			_ = agent.NewSessionRecoveryManager(rt, sessionStore, stdRecoveryLogger{})
+			_ = agent.NewSessionRecoveryManager(h.Runtime, sessionStore, stdRecoveryLogger{})
 
 			// Restore loaded session if -c or -r was used
 			if loadedSession != nil {
@@ -809,12 +647,12 @@ func main() {
 						},
 					})
 				}
-				rt.RestoreSession(messages)
+				h.Runtime.RestoreSession(messages)
 			}
 
 			if useTUI && isTerminal() {
 				tui.ApplyTheme(tui.LoadTheme(themeName))
-				return tui.Run(rt, tui.Config{
+				return tui.Run(h.Runtime, tui.Config{
 					Version:  version,
 					Model:    resolvedModel,
 					MaxTurns: maxTurns,
@@ -822,7 +660,7 @@ func main() {
 				})
 			}
 
-			r := repl.NewREPL(rt, os.Stdin, os.Stdout, repl.REPLConfig{
+			r := repl.NewREPL(h.Runtime, os.Stdin, os.Stdout, repl.REPLConfig{
 				Version:  version,
 				Model:    resolvedModel,
 				MaxTurns: maxTurns,
@@ -1067,82 +905,41 @@ func main() {
 			outputFormat, _ := cmd.Flags().GetString("output-format")
 			outputSchema, _ := cmd.Flags().GetString("output-schema")
 
-			provider, resolvedModel, err := apiclient.ResolveProvider(model, apiKey)
+			// Use harness for initialization
+			h, err := harness.New(harness.Options{
+				Model:           model,
+				APIKey:          apiKey,
+				MaxTurns:        maxTurns,
+				MaxTokens:       maxTokens,
+				SkillName:       skillName,
+				SkipPermissions: true,
+				HashlineEnabled: hashlineEnabled,
+			})
 			if err != nil {
-				return fmt.Errorf("resolving provider: %w", err)
+				return err
 			}
-
-			// After resolving the model, set model-aware max tokens if user didn't override
-			if !cmd.Flags().Changed("max-tokens") {
-				maxTokens = apiclient.MaxTokensForProvider(provider.Kind(), resolvedModel)
-			}
-
-			// Phase 1: wrap provider with FallbackProvider and ModelRouter
-			fp := buildFallbackProvider(provider, resolvedModel)
-			router := buildModelRouter(fp)
-
-			toolImpl := toolimpl.NewRegistry()
-
-			// Phase 1 + Phase 3: register advanced tools
-			cleanup := wireAdvancedTools(toolImpl, hashlineEnabled)
-			defer cleanup()
-
-			executor := agent.NewRegistryExecutor(toolImpl, toolReg)
-
-			// Phase 2: create Orchestrator with ModelRouter and executor,
-			// then register its delegation tools in the tool registry.
-			orch := orchestrator.NewOrchestrator(router, executor)
-			toolImpl.Set("orchestrator_delegate", &orchestratorToolAdapter{orch: orch, toolName: "orchestrator_delegate"})
-			toolImpl.Set("orchestrator_delegate_bg", &orchestratorToolAdapter{orch: orch, toolName: "orchestrator_delegate_bg"})
-
-			// Phase 2: load skills on startup
-			skillLoader := skills.NewSkillLoader("")
-			_, skillErrs := skillLoader.LoadAll()
-			for _, e := range skillErrs {
-				log.Printf("[skills] %v", e)
-			}
-
-			systemPrompt := repl.BuildSystemPrompt(executor.ListTools())
-
-			// If --skill flag is provided, prepend the skill's system prompt
-			if skillName != "" {
-				sk, ok := skillLoader.GetSkill(skillName)
-				if !ok {
-					return fmt.Errorf("unknown skill: %s", skillName)
-				}
-				systemPrompt = sk.SystemPrompt + "\n\n" + systemPrompt
-			}
+			defer h.Close()
 
 			if printPrompt {
-				fmt.Println(systemPrompt)
+				// Print system prompt by building it the same way harness does
+				fmt.Println(repl.BuildSystemPrompt(h.Executor.ListTools()))
 				return nil
 			}
 
 			if verbose {
-				log.Printf("[verbose] model=%s maxTurns=%d maxTokens=%d", resolvedModel, maxTurns, maxTokens)
+				log.Printf("[verbose] model=%s maxTurns=%d maxTokens=%d", h.Model, maxTurns, maxTokens)
 			}
 
-			// Use FallbackProvider (which implements Provider) for the runtime
-			rt := agent.NewConversationRuntime(agent.RuntimeOptions{
-				Provider:      fp,
-				Executor:      executor,
-				Model:         resolvedModel,
-				MaxTokens:     maxTokens,
-				MaxIterations: maxTurns,
-				SystemPrompt:  systemPrompt,
-				PermMode:      agent.DangerFullAccess,
-			})
-
 			// Phase 1: wrap runtime with SessionRecoveryManager
-			_ = agent.NewSessionRecoveryManager(rt, sessionStore, stdRecoveryLogger{})
+			_ = agent.NewSessionRecoveryManager(h.Runtime, sessionStore, stdRecoveryLogger{})
 
 			// Structured output mode: collect tool calls and output JSON
 			if outputFormat == "json" {
 				writer := structout.NewWriter(outputSchema)
 				cb := structout.NewToolCallbackWrapper(writer)
-				rt.SetToolCb(cb)
+				h.Runtime.SetToolCb(cb)
 
-				resp, err := rt.SendUserMessage(context.Background(), args[0])
+				resp, err := h.Chat(context.Background(), args[0])
 				if err != nil {
 					return err
 				}
@@ -1155,7 +952,7 @@ func main() {
 					}
 				}
 
-				usage := rt.GetUsage()
+				usage := h.GetUsage()
 				inputCostPer1M := 3.0
 				outputCostPer1M := 15.0
 				totalCost := float64(usage.InputTokens)/1_000_000*inputCostPer1M + float64(usage.OutputTokens)/1_000_000*outputCostPer1M
@@ -1177,7 +974,7 @@ func main() {
 				return nil
 			}
 
-			return repl.RunOneShot(context.Background(), rt, args[0], !noStream, os.Stdout)
+			return repl.RunOneShot(context.Background(), h.Runtime, args[0], !noStream, os.Stdout)
 		},
 	}
 	promptCmd.Flags().String("model", "sonnet", "Model name or alias")
