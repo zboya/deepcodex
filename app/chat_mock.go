@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	"context"
@@ -25,21 +25,31 @@ Mock 模式下不会真实请求大模型，每个字符会以约 100ms 的间�
 - ✅ 支持随时切换`
 
 // mockSendMessage 模拟大模型慢慢吐字，通过 Wails Events 推送增量文本到前端
-func (a *App) mockSendMessage(_ context.Context) Message {
-	go func() {
-		runes := []rune(mockReply)
-		for _, r := range runes {
-			runtime.EventsEmit(a.ctx, "chat:delta", string(r))
-			time.Sleep(100 * time.Millisecond)
+func (c *Chat) mockSendMessage(ctx context.Context) Message {
+	runes := []rune(mockReply)
+	var fullText string
+	for _, r := range runes {
+		select {
+		case <-ctx.Done():
+			// context 被取消，发送停止事件并返回已生成的内容
+			runtime.EventsEmit(c.ctx, "chat:stopped", fullText)
+			return Message{
+				ID:      fmt.Sprintf("msg-%d", time.Now().UnixNano()),
+				Role:    "assistant",
+				Content: fullText,
+				Time:    time.Now().Unix(),
+			}
+		default:
 		}
-		runtime.EventsEmit(a.ctx, "chat:done", mockReply)
-	}()
-	// 等待 goroutine 完成后再返回（阻塞式等待）
-	time.Sleep(time.Duration(len([]rune(mockReply)))*100*time.Millisecond + 50*time.Millisecond)
+		fullText += string(r)
+		runtime.EventsEmit(c.ctx, "chat:delta", string(r))
+		time.Sleep(100 * time.Millisecond)
+	}
+	runtime.EventsEmit(c.ctx, "chat:done", fullText)
 	return Message{
 		ID:      fmt.Sprintf("msg-%d", time.Now().UnixNano()),
 		Role:    "assistant",
-		Content: mockReply,
+		Content: fullText,
 		Time:    time.Now().Unix(),
 	}
 }

@@ -4,7 +4,7 @@ import Sidebar from './components/Sidebar';
 import MainContent from './components/MainContent';
 import SettingsPage from './components/SettingsPage';
 import { ChatItem, ChatMessage, Project } from './types';
-import { SendMessage } from '../wailsjs/go/main/App';
+import { SendMessage, StopMessage } from '../wailsjs/go/main/App';
 import { EventsOn, EventsOff } from '../wailsjs/runtime/runtime';
 
 function App() {
@@ -54,10 +54,19 @@ function App() {
       setMessages((prev) => {
         const last = prev[prev.length - 1];
         if (last && last.role === 'assistant' && last.streaming) {
-          return [
-            ...prev.slice(0, -1),
-            { ...last, streaming: false },
-          ];
+          return [...prev.slice(0, -1), { ...last, streaming: false }];
+        }
+        return prev;
+      });
+      setIsStreaming(false);
+    });
+
+    // 后端主动停止（context 取消后发出），与前端 handleStop 配合收尾
+    const offStopped = EventsOn('chat:stopped', (_partialText: string) => {
+      setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        if (last && last.role === 'assistant' && last.streaming) {
+          return [...prev.slice(0, -1), { ...last, streaming: false }];
         }
         return prev;
       });
@@ -67,6 +76,7 @@ function App() {
     return () => {
       offDelta();
       offDone();
+      offStopped();
     };
   }, []);
 
@@ -139,14 +149,13 @@ function App() {
 
   const handleStop = useCallback(() => {
     stoppedRef.current = true;
+    // 通知后端取消当前请求
+    StopMessage().catch((err) => console.warn('[StopMessage]', err));
     // 立即把流式状态收尾，将已收到的内容保留
     setMessages((prev) => {
       const last = prev[prev.length - 1];
       if (last && last.role === 'assistant' && last.streaming) {
-        return [
-          ...prev.slice(0, -1),
-          { ...last, streaming: false },
-        ];
+        return [...prev.slice(0, -1), { ...last, streaming: false }];
       }
       return prev;
     });

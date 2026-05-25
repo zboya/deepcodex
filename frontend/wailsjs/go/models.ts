@@ -109,7 +109,7 @@ export namespace apiclient {
 
 }
 
-export namespace main {
+export namespace app {
 	
 	export class ChatItem {
 	    id: string;
@@ -143,22 +143,6 @@ export namespace main {
 	        this.role = source["role"];
 	        this.content = source["content"];
 	        this.time = source["time"];
-	    }
-	}
-	export class Project {
-	    id: string;
-	    name: string;
-	    path: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new Project(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.name = source["name"];
-	        this.path = source["path"];
 	    }
 	}
 
