@@ -22,19 +22,101 @@ import { apiclient } from '../../wailsjs/go/models';
 import { PlusCircle, Edit, Trash, Check, X, Refresh } from './SettingsIcons';
 
 // 支持的 provider 协议种类, 与后端 ProviderConfig.ToProviderKind() 对齐.
-const PROVIDER_KINDS: { value: string; label: string; defaultBase?: string }[] = [
-  { value: 'openai', label: 'OpenAI', defaultBase: 'https://api.openai.com/v1' },
-  { value: 'anthropic', label: 'Anthropic (Claude)', defaultBase: '' },
-  { value: 'gemini', label: 'Google Gemini', defaultBase: 'https://generativelanguage.googleapis.com/v1beta/openai' },
-  { value: 'xai', label: 'xAI (Grok)', defaultBase: 'https://api.x.ai/v1' },
-  { value: 'deepseek', label: 'DeepSeek', defaultBase: 'https://api.deepseek.com/v1' },
-  { value: 'mistral', label: 'Mistral', defaultBase: 'https://api.mistral.ai/v1' },
-  { value: 'openrouter', label: 'OpenRouter', defaultBase: 'https://openrouter.ai/api/v1' },
-  { value: 'together', label: 'Together AI', defaultBase: 'https://api.together.xyz/v1' },
-  { value: 'groq', label: 'Groq', defaultBase: 'https://api.groq.com/openai/v1' },
-  { value: 'azure', label: 'Azure OpenAI', defaultBase: '' },
-  { value: 'novita', label: 'Novita AI', defaultBase: 'https://api.novita.ai/v3/openai' },
-  { value: 'openai-compat', label: 'OpenAI 兼容 (自定义)', defaultBase: '' },
+// defaultModels: 该供应商常见的模型 ID 列表, 用户未填写时作为默认值.
+// defaultModel:  默认选用的主模型, 未填写时作为默认值.
+type ProviderKindOption = {
+  value: string;
+  label: string;
+  defaultBase?: string;
+  defaultModels?: string[];
+  defaultModel?: string;
+};
+
+const PROVIDER_KINDS: ProviderKindOption[] = [
+  {
+    value: 'openai',
+    label: 'OpenAI',
+    defaultBase: 'https://api.openai.com/v1',
+    defaultModels: ['gpt-5.4', 'gpt-5.4-mini', 'gpt-5.4-nano', 'gpt-4o', 'gpt-4o-mini', 'o3', 'o3-mini', 'o4-mini'],
+    defaultModel: 'gpt-5.4',
+  },
+  {
+    value: 'anthropic',
+    label: 'Anthropic (Claude)',
+    defaultBase: '',
+    defaultModels: ['claude-opus-4-6', 'claude-sonnet-4-6', 'claude-haiku-4-5-20251213'],
+    defaultModel: 'claude-sonnet-4-6',
+  },
+  {
+    value: 'gemini',
+    label: 'Google Gemini',
+    defaultBase: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    defaultModels: ['gemini-3.1-pro-preview', 'gemini-3-flash', 'gemini-2.5-pro'],
+    defaultModel: 'gemini-3.1-pro-preview',
+  },
+  {
+    value: 'xai',
+    label: 'xAI (Grok)',
+    defaultBase: 'https://api.x.ai/v1',
+    defaultModels: ['grok-4.20-beta', 'grok-3', 'grok-3-mini', 'grok-2'],
+    defaultModel: 'grok-4.20-beta',
+  },
+  {
+    value: 'deepseek',
+    label: 'DeepSeek',
+    defaultBase: 'https://api.deepseek.com/v1',
+    defaultModels: ['deepseek-chat', 'deepseek-reasoner', 'deepseek-coder'],
+    defaultModel: 'deepseek-chat',
+  },
+  {
+    value: 'mistral',
+    label: 'Mistral',
+    defaultBase: 'https://api.mistral.ai/v1',
+    defaultModels: ['mistral-large-latest', 'mistral-small-latest', 'open-mistral-nemo', 'codestral-latest', 'pixtral-large-latest'],
+    defaultModel: 'mistral-large-latest',
+  },
+  {
+    value: 'openrouter',
+    label: 'OpenRouter',
+    defaultBase: 'https://openrouter.ai/api/v1',
+    defaultModels: ['anthropic/claude-sonnet-4-6', 'openai/gpt-5.4', 'google/gemini-3.1-pro-preview', 'meta-llama/llama-3.3-70b-instruct'],
+    defaultModel: 'anthropic/claude-sonnet-4-6',
+  },
+  {
+    value: 'together',
+    label: 'Together AI',
+    defaultBase: 'https://api.together.xyz/v1',
+    defaultModels: ['meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo', 'meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo', 'Qwen/Qwen2.5-72B-Instruct-Turbo'],
+    defaultModel: 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo',
+  },
+  {
+    value: 'groq',
+    label: 'Groq',
+    defaultBase: 'https://api.groq.com/openai/v1',
+    defaultModels: ['llama-3.3-70b-versatile', 'mixtral-8x7b-32768', 'gemma2-9b-it'],
+    defaultModel: 'llama-3.3-70b-versatile',
+  },
+  {
+    value: 'azure',
+    label: 'Azure OpenAI',
+    defaultBase: '',
+    defaultModels: [],
+    defaultModel: '',
+  },
+  {
+    value: 'novita',
+    label: 'Novita AI',
+    defaultBase: 'https://api.novita.ai/v3/openai',
+    defaultModels: ['deepseek/deepseek_v3', 'deepseek/deepseek-r1', 'meta-llama/llama-3.3-70b-instruct', 'qwen/qwen-2.5-72b-instruct'],
+    defaultModel: 'deepseek/deepseek_v3',
+  },
+  {
+    value: 'openai-compat',
+    label: 'OpenAI 兼容 (自定义)',
+    defaultBase: '',
+    defaultModels: [],
+    defaultModel: '',
+  },
 ];
 
 // 表单的初始值 (用于新增).
@@ -122,10 +204,28 @@ const ModelSettings: React.FC = () => {
       return;
     }
     // 解析模型列表 (按行分割).
-    editing.models = modelsInput
+    let models = modelsInput
       .split('\n')
       .map((s) => s.trim())
       .filter(Boolean);
+
+    // 取出当前 kind 的默认值, 用户未填写时回填默认值.
+    const kindDef = PROVIDER_KINDS.find((k) => k.value === editing.kind);
+
+    // BaseURL 未填 → 使用 kind 默认.
+    if (!editing.baseUrl || !editing.baseUrl.trim()) {
+      editing.baseUrl = kindDef?.defaultBase || '';
+    }
+    // 模型列表为空 → 使用 kind 默认.
+    if (models.length === 0 && kindDef?.defaultModels && kindDef.defaultModels.length > 0) {
+      models = [...kindDef.defaultModels];
+    }
+    editing.models = models;
+
+    // 默认模型未填 → 使用 kind 默认; 若仍为空, 退化为第一个模型.
+    if (!editing.defaultModel || !editing.defaultModel.trim()) {
+      editing.defaultModel = kindDef?.defaultModel || (models.length > 0 ? models[0] : '');
+    }
 
     // 对于「新增」, 但 name 与现有冲突 → 阻止.
     if (!editingOriginalName && providers.some((p) => p.name.toLowerCase() === editing.name.toLowerCase())) {
@@ -353,11 +453,15 @@ const ModelSettings: React.FC = () => {
                 <input
                   type="text"
                   value={editing.defaultModel || ''}
-                  placeholder="gpt-5.4 / claude-sonnet-4-6 / ..."
+                  placeholder={
+                    kindOptions.find((k) => k.value === editing.kind)?.defaultModel ||
+                    'gpt-5.4 / claude-sonnet-4-6 / ...'
+                  }
                   onChange={(e) =>
                     setEditing(new apiclient.ProviderConfig({ ...editing, defaultModel: e.target.value }))
                   }
                 />
+                <div className="form-hint">留空将自动使用该供应商的推荐默认模型</div>
               </div>
 
               <div className="form-row">
@@ -377,9 +481,13 @@ const ModelSettings: React.FC = () => {
                 <textarea
                   rows={6}
                   value={modelsInput}
-                  placeholder={'gpt-5.4\ngpt-4o\no3-mini'}
+                  placeholder={
+                    (kindOptions.find((k) => k.value === editing.kind)?.defaultModels || []).join('\n') ||
+                    'gpt-5.4\ngpt-4o\no3-mini'
+                  }
                   onChange={(e) => setModelsInput(e.target.value)}
                 />
+                <div className="form-hint">留空将自动使用该供应商的推荐模型列表</div>
                 {pullError && <div className="form-error">{pullError}</div>}
               </div>
 
