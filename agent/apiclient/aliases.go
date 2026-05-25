@@ -56,7 +56,7 @@ var modelAliases = map[string]string{
 	"grok-3":    "grok-3",
 	"grok-2":    "grok-2",
 	// DeepSeek
-	"deepseek-v4-pro":   "deepseek-v4-pro",
+	"deepseek":          "deepseek-v4-pro",
 	"deepseek-v4-flash": "deepseek-v4-flash",
 	// Mistral
 	"mistral":       "mistral-large-latest",

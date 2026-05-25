@@ -18,10 +18,31 @@ export namespace apiclient {
 	        this.source = source["source"];
 	    }
 	}
-	export class ProviderConfig {
+	export class ProviderTemplate {
 	    name: string;
 	    kind: string;
-	    baseUrl?: string;
+	    displayName: string;
+	    baseUrl: string;
+	    models: string[];
+	    defaultModel: string;
+	    authEnv?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProviderTemplate(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.kind = source["kind"];
+	        this.displayName = source["displayName"];
+	        this.baseUrl = source["baseUrl"];
+	        this.models = source["models"];
+	        this.defaultModel = source["defaultModel"];
+	        this.authEnv = source["authEnv"];
+	    }
+	}
+	export class ProviderConfig {
 	    apiKey?: string;
 	    authToken?: string;
 	    models?: string[];

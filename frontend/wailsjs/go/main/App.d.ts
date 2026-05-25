@@ -7,6 +7,8 @@ export function CreateChat(arg1:string):Promise<main.ChatItem>;
 
 export function DeleteProvider(arg1:string):Promise<void>;
 
+export function EnsureDefaultProviders():Promise<apiclient.ProvidersConfig>;
+
 export function GetProvidersConfig():Promise<apiclient.ProvidersConfig>;
 
 export function GetProvidersConfigPath():Promise<string>;
@@ -20,6 +22,8 @@ export function ListProjects():Promise<Array<main.Project>>;
 export function ListProviderModels(arg1:string):Promise<Array<apiclient.ModelInfo>>;
 
 export function ListProviders():Promise<Array<apiclient.ProviderConfig>>;
+
+export function ListSupportedProviders():Promise<Array<apiclient.ProviderTemplate>>;
 
 export function SaveProvider(arg1:apiclient.ProviderConfig):Promise<void>;
 

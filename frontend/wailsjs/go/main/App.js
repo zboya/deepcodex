@@ -10,6 +10,10 @@ export function DeleteProvider(arg1) {
   return window['go']['main']['App']['DeleteProvider'](arg1);
 }
 
+export function EnsureDefaultProviders() {
+  return window['go']['main']['App']['EnsureDefaultProviders']();
+}
+
 export function GetProvidersConfig() {
   return window['go']['main']['App']['GetProvidersConfig']();
 }
@@ -36,6 +40,10 @@ export function ListProviderModels(arg1) {
 
 export function ListProviders() {
   return window['go']['main']['App']['ListProviders']();
+}
+
+export function ListSupportedProviders() {
+  return window['go']['main']['App']['ListSupportedProviders']();
 }
 
 export function SaveProvider(arg1) {

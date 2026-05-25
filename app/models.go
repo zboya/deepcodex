@@ -109,6 +109,35 @@ func (m *Models) GetProvidersConfigPath() string {
 	return apiclient.ConfigPath()
 }
 
+// ListSupportedProviders 返回所有内置支持的 LLM 提供商模板.
+//
+// 该接口与 ListProviders 互补:
+//   - ListProviders        → 用户实际配置 (含已脱敏 API Key)
+//   - ListSupportedProviders → 系统知道如何接入的全部 provider 元数据
+//
+// 前端可以用它在模型下拉中展示「即使尚未配置 key 也能看到」的全集.
+func (m *Models) ListSupportedProviders() []apiclient.ProviderTemplate {
+	return apiclient.ListBuiltinProviderTemplates()
+}
+
+// EnsureDefaultProviders 把所有内置 provider 模板写入到 providers.json.
+//
+// 已存在的 provider 不会被覆盖, 仅在某些字段为空时补齐默认值.
+// 应用启动时会自动调用一次, 也可由前端在用户点击「重置默认」时主动调用.
+func (m *Models) EnsureDefaultProviders() *apiclient.ProvidersConfig {
+	cfg, err := apiclient.EnsureBuiltinProvidersInConfig()
+	if err != nil {
+		slog.Error(fmt.Sprintf("[app] ensure default providers failed: %v", err))
+		return &apiclient.ProvidersConfig{Version: 1, Providers: []apiclient.ProviderConfig{}}
+	}
+	// 与 GetProvidersConfig 一致: 返回前脱敏 key.
+	for i := range cfg.Providers {
+		cfg.Providers[i].APIKey = maskKey(cfg.Providers[i].APIKey)
+		cfg.Providers[i].AuthToken = maskKey(cfg.Providers[i].AuthToken)
+	}
+	return cfg
+}
+
 // maskKey 与 apiclient.maskSecret 行为一致, 在 main 包中复制一份避免导出.
 func maskKey(s string) string {
 	if s == "" {
