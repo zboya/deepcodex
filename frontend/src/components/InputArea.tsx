@@ -1,4 +1,4 @@
-import React, { KeyboardEvent } from 'react';
+import React, { KeyboardEvent, useEffect, useRef, useState, useCallback } from 'react';
 import {
   Plus,
   Hand,
@@ -7,6 +7,13 @@ import {
   ArrowUp,
   FolderPlus,
 } from './Icons';
+import {
+  ListProviders,
+  GetProvidersConfig,
+  SetActiveProvider,
+  SaveProvider,
+} from '../../wailsjs/go/main/App';
+import { apiclient } from '../../wailsjs/go/models';
 
 interface InputAreaProps {
   value: string;
@@ -26,6 +33,75 @@ const InputArea: React.FC<InputAreaProps> = ({ value, onChange, onSubmit, disabl
       onSubmit();
     }
   };
+
+  // ===== 模型选择器 =====
+  const [providers, setProviders] = useState<apiclient.ProviderConfig[]>([]);
+  const [activeProvider, setActiveProviderName] = useState<string>('');
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const pickerRef = useRef<HTMLDivElement | null>(null);
+
+  const refreshProviders = useCallback(async () => {
+    try {
+      const list = await ListProviders();
+      setProviders((list || []).filter((p) => p.enabled));
+      const cfg = await GetProvidersConfig();
+      setActiveProviderName(cfg?.activeProvider || '');
+    } catch (e) {
+      console.warn('[InputArea] load providers failed', e);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshProviders();
+  }, [refreshProviders]);
+
+  // 点击外部关闭
+  useEffect(() => {
+    if (!pickerOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+        setPickerOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [pickerOpen]);
+
+  const togglePicker = async () => {
+    if (!pickerOpen) {
+      // 打开前刷新一次，保证设置页改动同步
+      await refreshProviders();
+    }
+    setPickerOpen((v) => !v);
+  };
+
+  // 当前显示的 provider / model
+  const current = providers.find((p) => p.name === activeProvider);
+  const currentModel = current?.defaultModel || '';
+
+  const handleSelect = async (provider: apiclient.ProviderConfig, model: string) => {
+    try {
+      // 1. 设为活跃 provider
+      if (provider.name !== activeProvider) {
+        await SetActiveProvider(provider.name);
+      }
+      // 2. 若选中的 model 与默认不同，则更新 defaultModel
+      if (provider.defaultModel !== model) {
+        const next = new apiclient.ProviderConfig({ ...provider, defaultModel: model });
+        await SaveProvider(next);
+      }
+      await refreshProviders();
+      setPickerOpen(false);
+    } catch (e: any) {
+      console.error('[InputArea] switch model failed', e);
+      alert(`切换失败: ${e?.message || e}`);
+    }
+  };
+
+  // 展示文案：优先显示当前模型，否则 provider 名
+  const chipLabel = currentModel
+    ? currentModel
+    : current?.name || (providers.length === 0 ? '未配置' : '选择模型');
 
   return (
     <div className="input-wrap">
@@ -51,11 +127,65 @@ const InputArea: React.FC<InputAreaProps> = ({ value, onChange, onSubmit, disabl
 
           <div className="flex-spacer" />
 
-          <button className="tool-chip" title="模型">
-            <span className="muted">5.5</span>
-            <span className="muted">中</span>
-            <ChevronDown size={12} />
-          </button>
+          {/* 模型选择器 */}
+          <div className="model-picker" ref={pickerRef}>
+            <button
+              className="tool-chip"
+              title="选择模型"
+              onClick={togglePicker}
+              type="button"
+            >
+              <span className="muted">{chipLabel}</span>
+              <ChevronDown size={12} />
+            </button>
+
+            {pickerOpen && (
+              <div className="model-picker-menu" role="menu">
+                {providers.length === 0 ? (
+                  <div className="model-picker-empty">
+                    尚未配置 LLM 提供商
+                    <div className="model-picker-hint">请前往设置 → 模型 添加</div>
+                  </div>
+                ) : (
+                  providers.map((p) => {
+                    const models = p.models && p.models.length > 0
+                      ? p.models
+                      : (p.defaultModel ? [p.defaultModel] : []);
+                    return (
+                      <div key={p.name} className="model-picker-group">
+                        <div className="model-picker-group-title">
+                          <span>{p.name}</span>
+                          <span className="model-picker-kind">{p.kind}</span>
+                        </div>
+                        {models.length === 0 ? (
+                          <div className="model-picker-item disabled">
+                            (未配置模型)
+                          </div>
+                        ) : (
+                          models.map((m) => {
+                            const selected =
+                              p.name === activeProvider && m === currentModel;
+                            return (
+                              <button
+                                key={`${p.name}::${m}`}
+                                className={`model-picker-item ${selected ? 'selected' : ''}`}
+                                onClick={() => handleSelect(p, m)}
+                                type="button"
+                              >
+                                <span className="model-picker-dot">{selected ? '●' : ''}</span>
+                                <span className="model-picker-name">{m}</span>
+                              </button>
+                            );
+                          })
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            )}
+          </div>
+
           <button className="tool-btn" title="语音输入">
             <Mic size={16} />
           </button>

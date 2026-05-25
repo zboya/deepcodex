@@ -12,7 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"strings"
@@ -160,7 +160,7 @@ func (b *Bridge) Start(ctx context.Context) error {
 
 	go func() {
 		if err := b.server.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Printf("bridge: server error: %v", err)
+		slog.Error(fmt.Sprintf("bridge: server error: %v", err))
 		}
 		close(b.done)
 	}()

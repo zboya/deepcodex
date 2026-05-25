@@ -6,6 +6,18 @@ export function CreateChat(arg1) {
   return window['go']['main']['App']['CreateChat'](arg1);
 }
 
+export function DeleteProvider(arg1) {
+  return window['go']['main']['App']['DeleteProvider'](arg1);
+}
+
+export function GetProvidersConfig() {
+  return window['go']['main']['App']['GetProvidersConfig']();
+}
+
+export function GetProvidersConfigPath() {
+  return window['go']['main']['App']['GetProvidersConfigPath']();
+}
+
 export function GetUsage() {
   return window['go']['main']['App']['GetUsage']();
 }
@@ -18,10 +30,26 @@ export function ListProjects() {
   return window['go']['main']['App']['ListProjects']();
 }
 
+export function ListProviderModels(arg1) {
+  return window['go']['main']['App']['ListProviderModels'](arg1);
+}
+
+export function ListProviders() {
+  return window['go']['main']['App']['ListProviders']();
+}
+
+export function SaveProvider(arg1) {
+  return window['go']['main']['App']['SaveProvider'](arg1);
+}
+
 export function SendMessage(arg1, arg2) {
   return window['go']['main']['App']['SendMessage'](arg1, arg2);
 }
 
 export function SendMessageSync(arg1, arg2) {
   return window['go']['main']['App']['SendMessageSync'](arg1, arg2);
+}
+
+export function SetActiveProvider(arg1) {
+  return window['go']['main']['App']['SetActiveProvider'](arg1);
 }

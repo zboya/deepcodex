@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"os"
 	"os/exec"
 	"strings"
@@ -275,7 +275,7 @@ func (m *Manager) ConnectAll() error {
 	for _, def := range m.config.Servers {
 		if err := m.connectServer(def); err != nil {
 			errs = append(errs, fmt.Sprintf("%s: %v", def.Name, err))
-			log.Printf("[mcpclient] failed to connect to server %q: %v", def.Name, err)
+		slog.Error(fmt.Sprintf("[mcpclient] failed to connect to server %q: %v", def.Name, err))
 		}
 	}
 	if len(errs) > 0 {
@@ -346,7 +346,7 @@ func (m *Manager) connectServer(def ServerDef) error {
 	m.servers[def.Name] = sc
 	m.mu.Unlock()
 
-	log.Printf("[mcpclient] connected to server %q, discovered %d tools", def.Name, len(sc.tools))
+	slog.Info(fmt.Sprintf("[mcpclient] connected to server %q, discovered %d tools", def.Name, len(sc.tools)))
 	return nil
 }
 
@@ -441,7 +441,7 @@ func (m *Manager) monitorServer(name string, sc *ServerConn) {
 	sc.mu.Unlock()
 
 	if wasAlive {
-		log.Printf("[mcpclient] server %q exited unexpectedly: %v", name, err)
+		slog.Error(fmt.Sprintf("[mcpclient] server %q exited unexpectedly: %v", name, err))
 	}
 }
 
@@ -540,7 +540,7 @@ func (m *Manager) Close() {
 	defer m.mu.Unlock()
 
 	for name, sc := range m.servers {
-		log.Printf("[mcpclient] closing server %q", name)
+		slog.Info(fmt.Sprintf("[mcpclient] closing server %q", name))
 		sc.close()
 	}
 	m.servers = make(map[string]*ServerConn)

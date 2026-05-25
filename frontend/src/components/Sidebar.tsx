@@ -19,6 +19,7 @@ interface SidebarProps {
   onNewChat: () => void;
   onSelectProject: (id: string) => void;
   onSelectChat: (id: string) => void;
+  onOpenSettings?: () => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -30,6 +31,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onNewChat,
   onSelectProject,
   onSelectChat,
+  onOpenSettings,
 }) => {
   return (
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
@@ -96,7 +98,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       {/* 底部设置 */}
       <div className="sidebar-footer">
-        <button className="nav-item">
+        <button className="nav-item" onClick={onOpenSettings}>
           <Settings size={16} />
           <span>设置</span>
         </button>

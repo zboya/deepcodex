@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import './App.css';
 import Sidebar from './components/Sidebar';
 import MainContent from './components/MainContent';
+import SettingsPage from './components/SettingsPage';
 import { ChatItem, ChatMessage, Project } from './types';
 import { SendMessage } from '../wailsjs/go/main/App';
 import { EventsOn, EventsOff } from '../wailsjs/runtime/runtime';
@@ -19,6 +20,9 @@ function App() {
 
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+
+  // 当前视图: chat (默认聊天页) | settings (设置页全屏覆盖).
+  const [view, setView] = useState<'chat' | 'settings'>('chat');
 
   // 用 ref 跟踪流式消息的累积文本
   const streamingTextRef = useRef('');
@@ -132,21 +136,28 @@ function App() {
 
   return (
     <div id="App" className="app-root">
-      <Sidebar
-        collapsed={false}
-        projects={projects}
-        chats={chats}
-        activeProjectId={activeProjectId}
-        activeChatId={activeChatId}
-        onNewChat={handleNewChat}
-        onSelectProject={setActiveProjectId}
-        onSelectChat={setActiveChatId}
-      />
-      <MainContent
-        messages={messages}
-        isStreaming={isStreaming}
-        onSend={handleSendMessage}
-      />
+      {view === 'settings' ? (
+        <SettingsPage onBack={() => setView('chat')} />
+      ) : (
+        <>
+          <Sidebar
+            collapsed={false}
+            projects={projects}
+            chats={chats}
+            activeProjectId={activeProjectId}
+            activeChatId={activeChatId}
+            onNewChat={handleNewChat}
+            onSelectProject={setActiveProjectId}
+            onSelectChat={setActiveChatId}
+            onOpenSettings={() => setView('settings')}
+          />
+          <MainContent
+            messages={messages}
+            isStreaming={isStreaming}
+            onSend={handleSendMessage}
+          />
+        </>
+      )}
     </div>
   );
 }

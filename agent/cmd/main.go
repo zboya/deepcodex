@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/exec"
@@ -69,7 +69,7 @@ func isTerminal() bool {
 type stdRecoveryLogger struct{}
 
 func (stdRecoveryLogger) OnRecovery(action string, detail string) {
-	log.Printf("[recovery] %s: %s", action, detail)
+	slog.Info(fmt.Sprintf("[recovery] %s: %s", action, detail))
 }
 
 func main() {
@@ -93,7 +93,7 @@ func main() {
 	// Run pending data/config migrations on startup
 	migrationRunner := migrations.NewRunner(filepath.Join(".deepcodex"))
 	if err := migrationRunner.Run(); err != nil {
-		log.Printf("[migrations] %v", err)
+		slog.Error(fmt.Sprintf("[migrations] %v", err))
 	}
 
 	rootCmd := &cobra.Command{
@@ -603,12 +603,12 @@ func main() {
 			// CLI-specific tools: cron scheduler
 			cronDataDir := filepath.Join(".deepcodex")
 			cronScheduler := cron.NewScheduler(func(task *cron.Task) {
-				log.Printf("[cron] fired: %s — %s", task.ID, task.Prompt)
+				slog.Info(fmt.Sprintf("[cron] fired: %s — %s", task.ID, task.Prompt))
 			})
 			if n, err := cronScheduler.LoadSchedules(cronDataDir); err != nil {
-				log.Printf("[cron] failed to load schedules: %v", err)
+				slog.Error(fmt.Sprintf("[cron] failed to load schedules: %v", err))
 			} else if n > 0 {
-				log.Printf("[cron] loaded %d persisted schedule(s)", n)
+				slog.Info(fmt.Sprintf("[cron] loaded %d persisted schedule(s)", n))
 			}
 			cron.RegisterCronTool(h.ToolImpl, cronScheduler, cronDataDir)
 			defer cronScheduler.StopAll()
@@ -621,7 +621,7 @@ func main() {
 			skillLoader := skills.NewSkillLoader("")
 			loadedSkills, skillErrs := skillLoader.LoadAll()
 			for _, e := range skillErrs {
-				log.Printf("[skills] %v", e)
+				slog.Info(fmt.Sprintf("[skills] %v", e))
 			}
 
 			if printPrompt {
@@ -630,7 +630,7 @@ func main() {
 			}
 
 			if verbose {
-				log.Printf("[verbose] model=%s maxTurns=%d maxTokens=%d", resolvedModel, maxTurns, maxTokens)
+				slog.Info(fmt.Sprintf("[verbose] model=%s maxTurns=%d maxTokens=%d", resolvedModel, maxTurns, maxTokens))
 			}
 
 			// Phase 1: wrap runtime with SessionRecoveryManager
@@ -927,7 +927,7 @@ func main() {
 			}
 
 			if verbose {
-				log.Printf("[verbose] model=%s maxTurns=%d maxTokens=%d", h.Model, maxTurns, maxTokens)
+				slog.Info(fmt.Sprintf("[verbose] model=%s maxTurns=%d maxTokens=%d", h.Model, maxTurns, maxTokens))
 			}
 
 			// Phase 1: wrap runtime with SessionRecoveryManager

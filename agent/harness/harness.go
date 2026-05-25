@@ -6,7 +6,7 @@ package harness
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -99,7 +99,7 @@ type Harness struct {
 // New creates a fully-initialized Harness. Call Close() when done to release resources.
 func New(opts Options) (*Harness, error) {
 	if opts.Model == "" {
-		opts.Model = "sonnet"
+		opts.Model = "deepseek"
 	}
 	if opts.MaxTurns <= 0 {
 		opts.MaxTurns = 30
@@ -169,7 +169,7 @@ func New(opts Options) (*Harness, error) {
 	skillLoader := skills.NewSkillLoader(opts.SkillsDir)
 	_, skillErrs := skillLoader.LoadAll()
 	for _, e := range skillErrs {
-		log.Printf("[harness/skills] %v", e)
+			slog.Info(fmt.Sprintf("[harness/skills] %v", e))
 	}
 
 	// 8. Build system prompt
@@ -210,7 +210,7 @@ func New(opts Options) (*Harness, error) {
 	pm := plugins.NewPluginManager(opts.PluginsDir)
 	loadedPlugins, pluginErrs := pm.LoadAll()
 	for _, e := range pluginErrs {
-		log.Printf("[harness/plugins] %v", e)
+			slog.Info(fmt.Sprintf("[harness/plugins] %v", e))
 	}
 	hookRunner := plugins.NewPluginHookRunner(loadedPlugins)
 
@@ -218,7 +218,7 @@ func New(opts Options) (*Harness, error) {
 	if _, statErr := os.Stat(opts.HooksConfigPath); statErr == nil {
 		shellRunner, shellErr := hooks.NewShellHookRunner(opts.HooksConfigPath, hookRunner)
 		if shellErr != nil {
-			log.Printf("[harness/hooks] failed to load shell hooks: %v", shellErr)
+		slog.Error(fmt.Sprintf("[harness/hooks] failed to load shell hooks: %v", shellErr))
 		} else {
 			hooksRunner = shellRunner
 		}
@@ -309,12 +309,12 @@ func wireAdvancedTools(toolImpl *toolimpl.Registry, hashlineEnabled bool, mcpCon
 	if _, statErr := os.Stat(mcpConfigPath); statErr == nil {
 		mcpMgr, err := mcpclient.NewManager(mcpConfigPath)
 		if err != nil {
-			log.Printf("[harness/mcpclient] failed to create manager: %v", err)
+		slog.Error(fmt.Sprintf("[harness/mcpclient] failed to create manager: %v", err))
 			return tmuxMgr.KillAll
 		}
 
 		if connectErr := mcpMgr.ConnectAll(); connectErr != nil {
-			log.Printf("[harness/mcpclient] %v", connectErr)
+			slog.Error(fmt.Sprintf("[harness/mcpclient] %v", connectErr))
 		}
 
 		for _, t := range mcpMgr.ListTools() {
