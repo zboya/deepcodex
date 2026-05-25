@@ -6,6 +6,7 @@ import {
   Mic,
   ArrowUp,
   FolderPlus,
+  StopSquare,
 } from './Icons';
 import {
   ListProviders,
@@ -19,11 +20,12 @@ interface InputAreaProps {
   value: string;
   onChange: (v: string) => void;
   onSubmit: () => void;
+  onStop?: () => void;
   disabled?: boolean;
   compact?: boolean;
 }
 
-const InputArea: React.FC<InputAreaProps> = ({ value, onChange, onSubmit, disabled, compact }) => {
+const InputArea: React.FC<InputAreaProps> = ({ value, onChange, onSubmit, onStop, disabled, compact }) => {
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     // IME 输入法合成期间的 Enter 不当作发送
     // @ts-ignore - isComposing 标准属性，但 React 类型有时缺失
@@ -189,14 +191,24 @@ const InputArea: React.FC<InputAreaProps> = ({ value, onChange, onSubmit, disabl
           <button className="tool-btn" title="语音输入">
             <Mic size={16} />
           </button>
-          <button
-            className="send-btn"
-            onClick={onSubmit}
-            disabled={!value.trim() || disabled}
-            title="发送 (Enter)"
-          >
-            <ArrowUp size={16} />
-          </button>
+          {disabled && onStop ? (
+            <button
+              className="send-btn stop-btn"
+              onClick={onStop}
+              title="停止生成"
+            >
+              <StopSquare size={14} />
+            </button>
+          ) : (
+            <button
+              className="send-btn"
+              onClick={onSubmit}
+              disabled={!value.trim() || disabled}
+              title="发送 (Enter)"
+            >
+              <ArrowUp size={16} />
+            </button>
+          )}
         </div>
       </div>
 

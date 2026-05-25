@@ -26,6 +26,8 @@ function App() {
 
   // 用 ref 跟踪流式消息的累积文本
   const streamingTextRef = useRef('');
+  // 用 ref 标记是否已被用户中止
+  const stoppedRef = useRef(false);
 
   const handleNewChat = () => {
     setActiveChatId(null);
@@ -71,6 +73,7 @@ function App() {
   const handleSendMessage = useCallback(
     async (text: string) => {
       if (isStreaming) return;
+      stoppedRef.current = false;
 
       // 添加用户消息
       const userMsg: ChatMessage = {
@@ -134,6 +137,22 @@ function App() {
     [isStreaming, activeChatId]
   );
 
+  const handleStop = useCallback(() => {
+    stoppedRef.current = true;
+    // 立即把流式状态收尾，将已收到的内容保留
+    setMessages((prev) => {
+      const last = prev[prev.length - 1];
+      if (last && last.role === 'assistant' && last.streaming) {
+        return [
+          ...prev.slice(0, -1),
+          { ...last, streaming: false },
+        ];
+      }
+      return prev;
+    });
+    setIsStreaming(false);
+  }, []);
+
   return (
     <div id="App" className="app-root">
       {view === 'settings' ? (
@@ -155,6 +174,7 @@ function App() {
             messages={messages}
             isStreaming={isStreaming}
             onSend={handleSendMessage}
+            onStop={handleStop}
           />
         </>
       )}

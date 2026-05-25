@@ -111,6 +111,11 @@ func (a *App) CreateChat(title string) ChatItem {
 // 监听 "chat:done" 事件接收完成信号。
 // 该方法本身返回最终的完整响应。
 func (a *App) SendMessage(chatID string, content string) Message {
+	// Mock 模式：模拟大模型慢慢吐字
+	if MockMode {
+		return a.mockSendMessage(context.Background())
+	}
+
 	if a.harness == nil {
 		return Message{
 			ID:      fmt.Sprintf("msg-%d", time.Now().UnixNano()),

@@ -135,6 +135,12 @@ export const ArrowUp: React.FC<IconProps> = (p) => (
   </svg>
 );
 
+export const StopSquare: React.FC<IconProps> = (p) => (
+  <svg {...base(p)} fill="currentColor" stroke="none">
+    <rect x="5" y="5" width="14" height="14" rx="2" />
+  </svg>
+);
+
 export const Minimize: React.FC<IconProps> = (p) => (
   <svg {...base(p)}>
     <path d="M5 12h14" />

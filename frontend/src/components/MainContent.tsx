@@ -15,9 +15,10 @@ interface MainContentProps {
   messages: ChatMessage[];
   isStreaming: boolean;
   onSend: (text: string) => void;
+  onStop?: () => void;
 }
 
-const MainContent: React.FC<MainContentProps> = ({ messages, isStreaming, onSend }) => {
+const MainContent: React.FC<MainContentProps> = ({ messages, isStreaming, onSend, onStop }) => {
   const [text, setText] = useState('');
   const [thinkingOpen, setThinkingOpen] = useState<Record<string, boolean>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -56,6 +57,7 @@ const MainContent: React.FC<MainContentProps> = ({ messages, isStreaming, onSend
             value={text}
             onChange={setText}
             onSubmit={handleSubmit}
+            onStop={onStop}
             disabled={isStreaming}
           />
 
@@ -155,6 +157,7 @@ const MainContent: React.FC<MainContentProps> = ({ messages, isStreaming, onSend
                 value={text}
                 onChange={setText}
                 onSubmit={handleSubmit}
+                onStop={onStop}
                 disabled={isStreaming}
                 compact
               />
