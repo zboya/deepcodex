@@ -83,6 +83,11 @@ type Options struct {
 
 	// NoProjectConfig skips loading GOCODE.md/CLAUDE.md.
 	NoProjectConfig bool
+
+	// WorkDir sets the working directory for this harness instance.
+	// If non-empty, the harness will resolve all relative paths (plugins, hooks, mcp)
+	// relative to WorkDir, and os.Chdir to WorkDir before initialization.
+	WorkDir string
 }
 
 // Harness wraps a fully-initialized agent runtime with a simple API.
@@ -104,6 +109,14 @@ func New(opts Options) (*Harness, error) {
 	if opts.MaxTurns <= 0 {
 		opts.MaxTurns = 30
 	}
+
+	// Change to the specified working directory if provided.
+	if opts.WorkDir != "" {
+		if err := os.Chdir(opts.WorkDir); err != nil {
+			return nil, fmt.Errorf("changing working directory to %s: %w", opts.WorkDir, err)
+		}
+	}
+
 	if opts.PluginsDir == "" {
 		opts.PluginsDir = filepath.Join(".deepcodex", "plugins")
 	}

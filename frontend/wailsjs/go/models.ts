@@ -115,6 +115,7 @@ export namespace app {
 	    id: string;
 	    title: string;
 	    createdAt: number;
+	    workingDir?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new ChatItem(source);
@@ -125,6 +126,7 @@ export namespace app {
 	        this.id = source["id"];
 	        this.title = source["title"];
 	        this.createdAt = source["createdAt"];
+	        this.workingDir = source["workingDir"];
 	    }
 	}
 	export class Message {
@@ -143,6 +145,38 @@ export namespace app {
 	        this.role = source["role"];
 	        this.content = source["content"];
 	        this.time = source["time"];
+	    }
+	}
+	export class ProjectEntry {
+	    id: string;
+	    name: string;
+	    path: string;
+	    createdAt: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProjectEntry(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.path = source["path"];
+	        this.createdAt = source["createdAt"];
+	    }
+	}
+	export class SendOptions {
+	    continueSession: boolean;
+	    resumeSessionID: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new SendOptions(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.continueSession = source["continueSession"];
+	        this.resumeSessionID = source["resumeSessionID"];
 	    }
 	}
 

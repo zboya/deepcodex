@@ -9,16 +9,17 @@ import {
   Maximize,
   ChevronDown,
 } from './Icons';
-import { ChatMessage } from '../types';
+import { ChatMessage, Project } from '../types';
 
 interface MainContentProps {
   messages: ChatMessage[];
   isStreaming: boolean;
+  activeProject?: Project | null;
   onSend: (text: string) => void;
   onStop?: () => void;
 }
 
-const MainContent: React.FC<MainContentProps> = ({ messages, isStreaming, onSend, onStop }) => {
+const MainContent: React.FC<MainContentProps> = ({ messages, isStreaming, activeProject, onSend, onStop }) => {
   const [text, setText] = useState('');
   const [thinkingOpen, setThinkingOpen] = useState<Record<string, boolean>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -51,7 +52,12 @@ const MainContent: React.FC<MainContentProps> = ({ messages, isStreaming, onSend
       {!hasMessages ? (
         // ===== 空状态：居中欢迎页 =====
         <div className="main-inner">
-          <h1 className="hero-title">我们该做什么？</h1>
+          <h1 className="hero-title">
+            {activeProject ? `${activeProject.name}` : '我们该做什么？'}
+          </h1>
+          {activeProject && (
+            <div className="hero-project-path">{activeProject.path}</div>
+          )}
 
           <InputArea
             value={text}

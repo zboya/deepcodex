@@ -3,38 +3,132 @@ import './App.css';
 import Sidebar from './components/Sidebar';
 import MainContent from './components/MainContent';
 import SettingsPage from './components/SettingsPage';
-import { ChatItem, ChatMessage, Project } from './types';
-import { SendMessage, StopMessage } from '../wailsjs/go/main/App';
-import { EventsOn, EventsOff } from '../wailsjs/runtime/runtime';
+import { ChatItem, ChatMessage, Project, SendOptions } from './types';
+import {
+  SendMessage,
+  StopMessage,
+  ListProjects,
+  AddProject,
+  DeleteProject,
+  ListSessionsForProject,
+  GetSessionMessages,
+  SelectDirectory,
+} from '../wailsjs/go/main/App';
+import { EventsOn } from '../wailsjs/runtime/runtime';
 
 function App() {
-  const [projects] = useState<Project[]>([
-    { id: 'p1', name: 'nanochat' },
-    { id: 'p2', name: 'chatgpt-demo' },
-    { id: 'p3', name: 'ansible' },
-  ]);
-
-  const [chats] = useState<ChatItem[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  // key = projectId → session list
+  const [projectSessions, setProjectSessions] = useState<Record<string, ChatItem[]>>({});
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
 
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
 
-  // 当前视图: chat (默认聊天页) | settings (设置页全屏覆盖).
+  // 当前视图: chat | settings
   const [view, setView] = useState<'chat' | 'settings'>('chat');
 
   // 用 ref 跟踪流式消息的累积文本
   const streamingTextRef = useRef('');
-  // 用 ref 标记是否已被用户中止
-  const stoppedRef = useRef(false);
+
+  // ─── 初始化 ─────────────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    loadProjects();
+  }, []);
+
+  const loadProjects = async () => {
+    try {
+      const list = await ListProjects();
+      setProjects(list as Project[]);
+    } catch (err) {
+      console.error('[loadProjects]', err);
+    }
+  };
+
+  // ─── 项目管理 ────────────────────────────────────────────────────────────────
+
+  const handleAddProject = useCallback(async () => {
+    try {
+      const dir = await SelectDirectory();
+      if (!dir) return;
+      await AddProject(dir, '');
+      await loadProjects();
+    } catch (err) {
+      console.error('[AddProject]', err);
+      alert(`添加项目失败: ${err}`);
+    }
+  }, []);
+
+  const handleDeleteProject = useCallback(async (id: string) => {
+    try {
+      await DeleteProject(id);
+      setProjectSessions((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+      if (activeProjectId === id) {
+        setActiveProjectId(null);
+        setActiveChatId(null);
+        setMessages([]);
+      }
+      await loadProjects();
+    } catch (err) {
+      console.error('[DeleteProject]', err);
+    }
+  }, [activeProjectId]);
+
+  // ─── 会话管理 ────────────────────────────────────────────────────────────────
+
+  const handleLoadSessions = useCallback(async (projectId: string) => {
+    try {
+      const sessions = await ListSessionsForProject(projectId);
+      setProjectSessions((prev) => ({
+        ...prev,
+        [projectId]: sessions as ChatItem[],
+      }));
+    } catch (err) {
+      console.error('[ListSessionsForProject]', err);
+    }
+  }, []);
+
+  const handleSelectProject = useCallback((id: string) => {
+    setActiveProjectId(id);
+    // 若切换项目，清空当前消息
+    if (id !== activeProjectId) {
+      setActiveChatId(null);
+      setMessages([]);
+    }
+  }, [activeProjectId]);
+
+  const handleSelectChat = useCallback(async (projectId: string, chatId: string) => {
+    setActiveProjectId(projectId);
+    setActiveChatId(chatId);
+    // 加载该会话的历史消息
+    try {
+      const msgs = await GetSessionMessages(projectId, chatId);
+      const chatMsgs: ChatMessage[] = (msgs as any[]).map((m) => ({
+        id: m.id,
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+        time: m.time,
+      }));
+      setMessages(chatMsgs);
+    } catch (err) {
+      console.error('[GetSessionMessages]', err);
+      setMessages([]);
+    }
+  }, []);
 
   const handleNewChat = () => {
     setActiveChatId(null);
     setMessages([]);
   };
 
-  // 监听流式事件
+  // ─── 流式事件监听 ────────────────────────────────────────────────────────────
+
   useEffect(() => {
     const offDelta = EventsOn('chat:delta', (text: string) => {
       streamingTextRef.current += text;
@@ -61,7 +155,6 @@ function App() {
       setIsStreaming(false);
     });
 
-    // 后端主动停止（context 取消后发出），与前端 handleStop 配合收尾
     const offStopped = EventsOn('chat:stopped', (_partialText: string) => {
       setMessages((prev) => {
         const last = prev[prev.length - 1];
@@ -80,12 +173,12 @@ function App() {
     };
   }, []);
 
+  // ─── 发消息 ──────────────────────────────────────────────────────────────────
+
   const handleSendMessage = useCallback(
     async (text: string) => {
       if (isStreaming) return;
-      stoppedRef.current = false;
 
-      // 添加用户消息
       const userMsg: ChatMessage = {
         id: `user-${Date.now()}`,
         role: 'user',
@@ -93,7 +186,6 @@ function App() {
         time: Date.now() / 1000,
       };
 
-      // 添加空的 assistant 流式占位消息
       const assistantMsg: ChatMessage = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
@@ -106,14 +198,20 @@ function App() {
       setIsStreaming(true);
       streamingTextRef.current = '';
 
-      // 调用后端绑定方法（它会通过事件推送流式数据）
-      try {
-        console.log('[SendMessage] start', { chatID: activeChatId || 'default', text });
-        const resp = await SendMessage(activeChatId || 'default', text);
-        console.log('[SendMessage] resolved', resp);
+      // 若已有 activeChatId，携带 resumeSessionID 以继续该会话
+      const opts = {
+        continueSession: false,
+        resumeSessionID: activeChatId || '',
+      };
 
-        // 兜底：若 chat:done 事件没触发（例如返回的全文走的是非流式路径），
-        // 也要把流式状态收尾，并把最终内容填充进去。
+      try {
+        const resp = await SendMessage(
+          activeProjectId || '',
+          activeChatId || 'default',
+          text,
+          opts
+        );
+
         setMessages((prev) => {
           const last = prev[prev.length - 1];
           if (last && last.role === 'assistant' && last.streaming) {
@@ -129,6 +227,11 @@ function App() {
           return prev;
         });
         setIsStreaming(false);
+
+        // 刷新会话列表
+        if (activeProjectId) {
+          handleLoadSessions(activeProjectId);
+        }
       } catch (err) {
         console.error('[SendMessage error]', err);
         setMessages((prev) => {
@@ -144,14 +247,11 @@ function App() {
         setIsStreaming(false);
       }
     },
-    [isStreaming, activeChatId]
+    [isStreaming, activeChatId, activeProjectId, handleLoadSessions]
   );
 
   const handleStop = useCallback(() => {
-    stoppedRef.current = true;
-    // 通知后端取消当前请求
-    StopMessage().catch((err) => console.warn('[StopMessage]', err));
-    // 立即把流式状态收尾，将已收到的内容保留
+    StopMessage(activeProjectId || '').catch((err) => console.warn('[StopMessage]', err));
     setMessages((prev) => {
       const last = prev[prev.length - 1];
       if (last && last.role === 'assistant' && last.streaming) {
@@ -160,7 +260,13 @@ function App() {
       return prev;
     });
     setIsStreaming(false);
-  }, []);
+  }, [activeProjectId]);
+
+  // ─── 当前项目信息 ─────────────────────────────────────────────────────────────
+
+  const activeProject = projects.find((p) => p.id === activeProjectId) ?? null;
+
+  // ─── 渲染 ─────────────────────────────────────────────────────────────────────
 
   return (
     <div id="App" className="app-root">
@@ -171,17 +277,21 @@ function App() {
           <Sidebar
             collapsed={false}
             projects={projects}
-            chats={chats}
+            projectSessions={projectSessions}
             activeProjectId={activeProjectId}
             activeChatId={activeChatId}
             onNewChat={handleNewChat}
-            onSelectProject={setActiveProjectId}
-            onSelectChat={setActiveChatId}
+            onSelectProject={handleSelectProject}
+            onSelectChat={handleSelectChat}
             onOpenSettings={() => setView('settings')}
+            onAddProject={handleAddProject}
+            onDeleteProject={handleDeleteProject}
+            onLoadSessions={handleLoadSessions}
           />
           <MainContent
             messages={messages}
             isStreaming={isStreaming}
+            activeProject={activeProject}
             onSend={handleSendMessage}
             onStop={handleStop}
           />

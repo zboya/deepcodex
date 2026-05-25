@@ -3,34 +3,50 @@
 import {app} from '../models';
 import {apiclient} from '../models';
 
+export function AddProject(arg1:string,arg2:string):Promise<app.ProjectEntry>;
+
 export function Close():Promise<void>;
 
-export function CreateChat(arg1:string):Promise<app.ChatItem>;
+export function CreateChat(arg1:string,arg2:string):Promise<app.ChatItem>;
+
+export function DeleteProject(arg1:string):Promise<void>;
 
 export function DeleteProvider(arg1:string):Promise<void>;
 
 export function EnsureDefaultProviders():Promise<apiclient.ProvidersConfig>;
 
+export function GetProject(arg1:string):Promise<app.ProjectEntry>;
+
 export function GetProvidersConfig():Promise<apiclient.ProvidersConfig>;
 
 export function GetProvidersConfigPath():Promise<string>;
 
-export function GetUsage():Promise<Record<string, any>>;
+export function GetSessionMessages(arg1:string,arg2:string):Promise<Array<app.Message>>;
 
-export function ListChats():Promise<Array<app.ChatItem>>;
+export function GetSessionsDir(arg1:string):Promise<string>;
+
+export function GetUsage(arg1:string):Promise<Record<string, any>>;
+
+export function ListChats(arg1:string):Promise<Array<app.ChatItem>>;
+
+export function ListProjects():Promise<Array<app.ProjectEntry>>;
 
 export function ListProviderModels(arg1:string):Promise<Array<apiclient.ModelInfo>>;
 
 export function ListProviders():Promise<Array<apiclient.ProviderConfig>>;
 
+export function ListSessionsForProject(arg1:string):Promise<Array<app.ChatItem>>;
+
 export function ListSupportedProviders():Promise<Array<apiclient.ProviderTemplate>>;
+
+export function RenameProject(arg1:string,arg2:string):Promise<void>;
 
 export function SaveProvider(arg1:apiclient.ProviderConfig):Promise<void>;
 
-export function SendMessage(arg1:string,arg2:string):Promise<app.Message>;
+export function SelectDirectory():Promise<string>;
 
-export function SendMessageSync(arg1:string,arg2:string):Promise<app.Message>;
+export function SendMessage(arg1:string,arg2:string,arg3:string,arg4:app.SendOptions):Promise<app.Message>;
 
 export function SetActiveProvider(arg1:string):Promise<void>;
 
-export function StopMessage():Promise<void>;
+export function StopMessage(arg1:string):Promise<void>;

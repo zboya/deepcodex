@@ -4,17 +4,26 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"path/filepath"
 	"sync"
 	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/zboya/deepcodex/agent/agent"
+	"github.com/zboya/deepcodex/agent/apitypes"
 	"github.com/zboya/deepcodex/agent/harness"
+	"github.com/zboya/deepcodex/agent/session"
+	"github.com/zboya/deepcodex/agent/worktree"
 )
 
+// Chat manages AI conversation sessions for a specific working directory.
 type Chat struct {
 	ctx     context.Context
 	mu      sync.Mutex // protects concurrent sends
 	harness *harness.Harness
+
+	workDir      string               // the working directory for this chat instance
+	sessionStore *session.SessionStore // persists conversation sessions
 
 	cancelSend context.CancelFunc // cancels the current SendMessage context
 	cancelMu   sync.Mutex         // protects cancelSend
@@ -29,9 +38,10 @@ type Project struct {
 
 // ChatItem 对话条目
 type ChatItem struct {
-	ID        string `json:"id"`
-	Title     string `json:"title"`
-	CreatedAt int64  `json:"createdAt"`
+	ID         string `json:"id"`
+	Title      string `json:"title"`
+	CreatedAt  int64  `json:"createdAt"`
+	WorkingDir string `json:"workingDir,omitempty"`
 }
 
 // Message 单条消息
@@ -42,33 +52,104 @@ type Message struct {
 	Time    int64  `json:"time"`
 }
 
+// SendOptions controls session loading behaviour for SendMessage.
+type SendOptions struct {
+	// ContinueSession loads the most recent session for the current working directory
+	// before sending the message (equivalent to `deepcodex chat -c`).
+	ContinueSession bool `json:"continueSession"`
+
+	// ResumeSessionID loads a specific session by ID before sending the message
+	// (equivalent to `deepcodex chat -r <id>`).
+	// Takes precedence over ContinueSession when non-empty.
+	ResumeSessionID string `json:"resumeSessionID"`
+}
+
 // NewChat 创建 Chat 实例
+// workDir specifies the project working directory. Pass "" to use the current directory.
 func NewChat(ctx context.Context, h *harness.Harness) *Chat {
+	// Determine session storage directory
+	sessDir := worktree.SessionDir()
+	if sessDir == "" {
+		sessDir = filepath.Join(".deepcodex", "sessions")
+	}
+	return NewChatWithWorkDir(ctx, h, "", sessDir)
+}
+
+// NewChatWithWorkDir creates a Chat instance tied to a specific working directory and session dir.
+// sessDir specifies where sessions are stored (e.g. "<workDir>/.port_sessions").
+func NewChatWithWorkDir(ctx context.Context, h *harness.Harness, workDir string, sessDir string) *Chat {
+	if sessDir == "" {
+		sessDir = filepath.Join(workDir, ".port_sessions")
+	}
 	return &Chat{
-		ctx:     ctx,
-		harness: h,
+		ctx:          ctx,
+		harness:      h,
+		workDir:      workDir,
+		sessionStore: session.NewSessionStore(sessDir),
 	}
 }
 
-// ListChats 列出对话历史（占位）
+// GetSessionMessages 返回指定会话 ID 的历史消息列表（只读，不恢复到 harness）
+func (c *Chat) GetSessionMessages(sessionID string) []Message {
+	s, err := c.sessionStore.Load(sessionID)
+	if err != nil {
+		return []Message{}
+	}
+	var msgs []Message
+	for i, m := range s.Messages {
+		msgs = append(msgs, Message{
+			ID:      fmt.Sprintf("%s-msg-%d", sessionID, i),
+			Role:    m.Role,
+			Content: m.Content,
+			Time:    time.Now().Unix(),
+		})
+	}
+	return msgs
+}
+
+// ListChats returns saved chat sessions for the current working directory.
 func (c *Chat) ListChats() []ChatItem {
-	return []ChatItem{}
+	metas, err := c.sessionStore.ListSessions()
+	if err != nil {
+		slog.Warn("[app] ListChats: failed to list sessions", "err", err)
+		return []ChatItem{}
+	}
+
+	var items []ChatItem
+	for _, m := range metas {
+		// Filter by working directory when one is set
+		if c.workDir != "" && m.WorkingDir != "" && m.WorkingDir != c.workDir {
+			continue
+		}
+		title := m.Summary
+		if title == "" {
+			title = m.SessionID
+		}
+		items = append(items, ChatItem{
+			ID:         m.SessionID,
+			Title:      title,
+			CreatedAt:  m.ModTime.Unix(),
+			WorkingDir: m.WorkingDir,
+		})
+	}
+	return items
 }
 
 // CreateChat 新建对话（占位）
 func (c *Chat) CreateChat(title string) ChatItem {
 	return ChatItem{
-		ID:        fmt.Sprintf("chat-%d", time.Now().UnixNano()),
-		Title:     title,
-		CreatedAt: time.Now().Unix(),
+		ID:         fmt.Sprintf("chat-%d", time.Now().UnixNano()),
+		Title:      title,
+		CreatedAt:  time.Now().Unix(),
+		WorkingDir: c.workDir,
 	}
 }
 
-// SendMessage 向对话发送消息，流式返回结果
+// SendMessage 向对话发送消息，流式返回结果。
+// opts 为可选的 session 加载选项（continueSession / resumeSessionID）。
 // 前端通过监听 "chat:delta" 事件接收流式文本片段，
 // 监听 "chat:done" 事件接收完成信号。
-// 该方法本身返回最终的完整响应。
-func (c *Chat) SendMessage(chatID string, content string) Message {
+func (c *Chat) SendMessage(chatID string, content string, opts SendOptions) Message {
 	// 创建可取消的 context，并保存 cancel 供 StopMessage 使用
 	ctx, cancel := context.WithCancel(context.Background())
 	c.cancelMu.Lock()
@@ -100,6 +181,12 @@ func (c *Chat) SendMessage(chatID string, content string) Message {
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
+	// Load historical session if requested (before sending the new message)
+	if err := c.applySessionOpts(opts); err != nil {
+		slog.Warn("[app] SendMessage: failed to load session", "err", err)
+		// Non-fatal: continue with fresh context
+	}
 
 	// 使用流式对话，通过 Wails Events 推送增量文本到前端
 	ch, err := c.harness.ChatStream(ctx, content)
@@ -200,6 +287,32 @@ func (c *Chat) SendMessageSync(chatID string, content string) Message {
 	}
 }
 
+// ContinueRecentSession loads the most recent session for the current working directory
+// into the harness runtime, enabling conversation continuity across restarts.
+// Returns an error if no session is found.
+func (c *Chat) ContinueRecentSession() error {
+	cwd := c.workDir
+	if cwd == "" {
+		return fmt.Errorf("working directory not set")
+	}
+	s, err := c.sessionStore.FindMostRecent(cwd)
+	if err != nil {
+		return fmt.Errorf("no recent session for %s: %w", cwd, err)
+	}
+	slog.Info("[app] ContinueRecentSession: restoring session", "sessionID", s.SessionID)
+	return c.restoreStoredSession(s)
+}
+
+// ResumeSession loads a specific session by ID into the harness runtime.
+func (c *Chat) ResumeSession(sessionID string) error {
+	s, err := c.sessionStore.Load(sessionID)
+	if err != nil {
+		return fmt.Errorf("loading session %s: %w", sessionID, err)
+	}
+	slog.Info("[app] ResumeSession: restoring session", "sessionID", s.SessionID)
+	return c.restoreStoredSession(s)
+}
+
 // GetUsage 获取 token 用量统计
 func (c *Chat) GetUsage() map[string]interface{} {
 	if c.harness == nil {
@@ -212,8 +325,85 @@ func (c *Chat) GetUsage() map[string]interface{} {
 	}
 }
 
+// GetWorkDir returns the working directory associated with this Chat instance.
+func (c *Chat) GetWorkDir() string {
+	return c.workDir
+}
+
 func (c *Chat) Close() {
 	if c.harness != nil {
 		c.harness.Close()
 	}
+}
+
+// --- internal helpers ---
+
+// applySessionOpts loads a historical session into the harness runtime based on SendOptions.
+// It must be called with c.mu held.
+func (c *Chat) applySessionOpts(opts SendOptions) error {
+	if c.harness == nil {
+		return nil
+	}
+
+	var loadedSession *session.StoredSession
+
+	switch {
+	case opts.ResumeSessionID != "":
+		// Load specific session by ID
+		s, err := c.sessionStore.Load(opts.ResumeSessionID)
+		if err != nil {
+			return fmt.Errorf("loading session %s: %w", opts.ResumeSessionID, err)
+		}
+		loadedSession = &s
+		slog.Info("[app] applySessionOpts: resuming session", "sessionID", s.SessionID)
+
+	case opts.ContinueSession:
+		// Load most recent session for current working directory
+		cwd := c.workDir
+		if cwd == "" {
+			return fmt.Errorf("ContinueSession requires a working directory")
+		}
+		s, err := c.sessionStore.FindMostRecent(cwd)
+		if err != nil {
+			return fmt.Errorf("no recent session for %s: %w", cwd, err)
+		}
+		loadedSession = &s
+		slog.Info("[app] applySessionOpts: continuing session", "sessionID", s.SessionID)
+	}
+
+	if loadedSession != nil {
+		return c.restoreStoredSession(*loadedSession)
+	}
+	return nil
+}
+
+// restoreStoredSession converts a StoredSession into InputMessages and restores it
+// into the harness runtime.
+func (c *Chat) restoreStoredSession(s session.StoredSession) error {
+	var messages []apitypes.InputMessage
+	for _, msg := range s.Messages {
+		messages = append(messages, apitypes.InputMessage{
+			Role: msg.Role,
+			Content: []apitypes.InputContentBlock{
+				{Kind: "text", Text: msg.Content},
+			},
+		})
+	}
+	c.harness.RestoreSession(messages)
+	return nil
+}
+
+// newHarnessForWorkDir is a convenience helper that creates a Harness pre-configured
+// for the given working directory, keeping options minimal for GUI usage.
+// The caller is responsible for calling Close() on the returned Harness.
+func newHarnessForWorkDir(workDir string, extraOpts ...func(*harness.Options)) (*harness.Harness, error) {
+	opts := harness.Options{
+		WorkDir:         workDir,
+		SkipPermissions: true, // GUI typically runs without interactive permission prompts
+		ToolCallback:    agent.NoOpToolCallback{},
+	}
+	for _, fn := range extraOpts {
+		fn(&opts)
+	}
+	return harness.New(opts)
 }
