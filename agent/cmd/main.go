@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -19,7 +18,6 @@ import (
 
 	"github.com/zboya/deepcodex/agent/agent"
 	"github.com/zboya/deepcodex/agent/apiclient"
-	"github.com/zboya/deepcodex/agent/apiserver"
 	"github.com/zboya/deepcodex/agent/apitypes"
 	"github.com/zboya/deepcodex/agent/authkeys"
 	"github.com/zboya/deepcodex/agent/bootstrap"
@@ -1016,36 +1014,6 @@ func main() {
 	mcpServeCmd.Flags().String("transport", "stdio", "Transport type: stdio or http")
 	mcpServeCmd.Flags().String("addr", ":8080", "HTTP listen address (only for http transport)")
 	rootCmd.AddCommand(mcpServeCmd)
-
-	// --- Feature 5: serve — HTTP REST API server ---
-	serveCmd := &cobra.Command{
-		Use:   "serve",
-		Short: "Start headless HTTP API server",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			addr, _ := cmd.Flags().GetString("addr")
-			// Load auth keys for request validation
-			store := authkeys.NewStore(filepath.Join(".deepcodex", "auth_keys.json"))
-			store.Load()
-			var authOpts []func(string) bool
-			if len(store.List()) > 0 {
-				authOpts = append(authOpts, store.Validate)
-			}
-			handler := apiserver.NewHandler(
-				apiserver.Config{Version: version},
-				func(msg string) (string, error) {
-					return fmt.Sprintf("echo: %s", msg), nil
-				},
-				func() (int, string) {
-					return 0, "none"
-				},
-				authOpts...,
-			)
-			fmt.Fprintf(os.Stderr, "deepcodex API server listening on %s\n", addr)
-			return http.ListenAndServe(addr, handler)
-		},
-	}
-	serveCmd.Flags().String("addr", ":3000", "Listen address")
-	rootCmd.AddCommand(serveCmd)
 
 	// --- Feature 6: stats — usage statistics ---
 	rootCmd.AddCommand(&cobra.Command{
