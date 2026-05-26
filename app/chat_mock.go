@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -66,55 +67,87 @@ var mockScenario = []mockStep{
 //
 // 同时在 EmitLegacyEvents=true 时兼容旧的 chat:delta / chat:done / chat:stopped 事件。
 func (c *Chat) mockSendMessage(ctx context.Context, chatID string) Message {
+	slog.Info("[app] mockSendMessage: start",
+		"chatID", chatID,
+		"steps", len(mockScenario),
+		"emitLegacyEvents", EmitLegacyEvents,
+	)
+
 	em := agui.New(c.ctx, chatID)
 	em.RunStarted()
 
 	var fullText string
 	toolIndex := 0
 
-	for _, step := range mockScenario {
+	for stepIdx, step := range mockScenario {
 		// Check cancellation
 		select {
 		case <-ctx.Done():
+			slog.Warn("[app] mockSendMessage: context cancelled before step",
+				"chatID", chatID,
+				"stepIndex", stepIdx,
+				"err", ctx.Err(),
+				"fullTextLen", len(fullText),
+			)
 			em.RunError("cancelled")
+			slog.Info("[app] mockSendMessage: emit RunError", "chatID", chatID, "reason", "cancelled")
 			if EmitLegacyEvents {
+				slog.Info("[app] mockSendMessage: emit legacy chat:stopped",
+					"chatID", chatID, "fullTextLen", len(fullText))
 				application.Get().Event.Emit("chat:stopped", fullText)
 			}
-			return Message{
+			msg := Message{
 				ID:      fmt.Sprintf("msg-%d", time.Now().UnixNano()),
 				Role:    "assistant",
 				Content: fullText,
 				Time:    time.Now().Unix(),
 			}
+			slog.Info("[app] mockSendMessage: return cancelled message",
+				"chatID", chatID, "msgID", msg.ID, "contentLen", len(msg.Content))
+			return msg
 		default:
 		}
 
 		if step.toolName != "" {
 			// === Tool Call Step ===
-			// Emit TOOL_CALL_START
 			em.ToolCallStart(toolIndex, "", step.toolName)
 
 			// Stream TOOL_CALL_ARGS character by character (simulating partial JSON)
 			for _, r := range []rune(step.toolArgs) {
 				select {
 				case <-ctx.Done():
+					slog.Warn("[app] mockSendMessage: context cancelled during tool args streaming",
+						"chatID", chatID,
+						"stepIndex", stepIdx,
+						"toolIndex", toolIndex,
+						"toolName", step.toolName,
+						"err", ctx.Err(),
+					)
 					em.RunError("cancelled")
+					slog.Info("[app] mockSendMessage: emit RunError", "chatID", chatID, "reason", "cancelled")
 					if EmitLegacyEvents {
+						slog.Info("[app] mockSendMessage: emit legacy chat:stopped",
+							"chatID", chatID, "fullTextLen", len(fullText))
 						application.Get().Event.Emit("chat:stopped", fullText)
 					}
-					return Message{
+					msg := Message{
 						ID:      fmt.Sprintf("msg-%d", time.Now().UnixNano()),
 						Role:    "assistant",
 						Content: fullText,
 						Time:    time.Now().Unix(),
 					}
+					slog.Info("[app] mockSendMessage: return cancelled message",
+						"chatID", chatID, "msgID", msg.ID, "contentLen", len(msg.Content))
+					return msg
 				default:
 				}
-				em.ToolCallArgs(toolIndex, string(r))
+				piece := string(r)
+				em.ToolCallArgs(toolIndex, piece)
+				slog.Debug("[app] mockSendMessage: emit ToolCallArgs",
+					"chatID", chatID, "toolIndex", toolIndex, "delta", piece)
 				time.Sleep(10 * time.Millisecond)
 			}
 
-			// Emit TOOL_CALL_END
 			em.ToolCallEnd(toolIndex)
 			toolIndex++
 
@@ -122,27 +155,42 @@ func (c *Chat) mockSendMessage(ctx context.Context, chatID string) Message {
 			time.Sleep(10 * time.Millisecond)
 		} else {
 			// === Text Step ===
-			// Stream text character by character
 			for _, r := range []rune(step.text) {
 				select {
 				case <-ctx.Done():
+					slog.Warn("[app] mockSendMessage: context cancelled during text streaming",
+						"chatID", chatID,
+						"stepIndex", stepIdx,
+						"err", ctx.Err(),
+						"fullTextLen", len(fullText),
+					)
 					em.RunError("cancelled")
+					slog.Info("[app] mockSendMessage: emit RunError", "chatID", chatID, "reason", "cancelled")
 					if EmitLegacyEvents {
+						slog.Info("[app] mockSendMessage: emit legacy chat:stopped",
+							"chatID", chatID, "fullTextLen", len(fullText))
 						application.Get().Event.Emit("chat:stopped", fullText)
 					}
-					return Message{
+					msg := Message{
 						ID:      fmt.Sprintf("msg-%d", time.Now().UnixNano()),
 						Role:    "assistant",
 						Content: fullText,
 						Time:    time.Now().Unix(),
 					}
+					slog.Info("[app] mockSendMessage: return cancelled message",
+						"chatID", chatID, "msgID", msg.ID, "contentLen", len(msg.Content))
+					return msg
 				default:
 				}
 				piece := string(r)
 				fullText += piece
 				em.TextDelta(piece)
+				slog.Debug("[app] mockSendMessage: emit TextDelta",
+					"chatID", chatID, "delta", piece, "fullTextLen", len(fullText))
 				if EmitLegacyEvents {
 					application.Get().Event.Emit("chat:delta", piece)
+					slog.Debug("[app] mockSendMessage: emit legacy chat:delta",
+						"chatID", chatID, "delta", piece)
 				}
 				time.Sleep(10 * time.Millisecond)
 			}
@@ -150,17 +198,43 @@ func (c *Chat) mockSendMessage(ctx context.Context, chatID string) Message {
 	}
 
 	// 收尾：闭合 TEXT_MESSAGE_END + RUN_FINISHED
-	em.RunFinished(&agui.Usage{
+	usage := &agui.Usage{
 		InputTokens:  1024,
 		OutputTokens: 512,
-	})
+	}
+	em.RunFinished(usage)
 	if EmitLegacyEvents {
 		application.Get().Event.Emit("chat:done", fullText)
 	}
-	return Message{
+	msg := Message{
 		ID:      fmt.Sprintf("msg-%d", time.Now().UnixNano()),
 		Role:    "assistant",
 		Content: fullText,
 		Time:    time.Now().Unix(),
 	}
+	slog.Info("[app] mockSendMessage: return final message",
+		"chatID", chatID,
+		"msgID", msg.ID,
+		"role", msg.Role,
+		"contentLen", len(msg.Content),
+		"time", msg.Time,
+	)
+	return msg
+}
+
+// previewText returns a short, single-line preview of s for logging.
+func previewText(s string, max int) string {
+	// collapse newlines for readability in logs
+	out := make([]rune, 0, len(s))
+	for _, r := range s {
+		if r == '\n' || r == '\r' {
+			out = append(out, ' ')
+		} else {
+			out = append(out, r)
+		}
+	}
+	if len(out) > max {
+		return string(out[:max]) + "..."
+	}
+	return string(out)
 }

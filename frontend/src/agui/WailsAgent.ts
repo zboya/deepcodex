@@ -97,6 +97,7 @@ export class WailsAgent extends AbstractAgent {
           resumeSessionID: input.threadId,
         },
       ).catch((err: unknown) => {
+        console.error('[WailsAgent] SendMessage rejected', err);
         this.runActive = false;
         if (!cancelled) subscriber.error(err);
       });

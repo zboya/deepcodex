@@ -24,8 +24,39 @@ const Channel = "agui:event"
 // emitFunc is the indirection used to send events to the Wails event bus.
 // Production code keeps the default; tests override this var to capture events
 // without needing a live Wails runtime.
+//
+// Why we DON'T use application.Get().Event.Emit here:
+//   Wails v3's EventManager.Emit dispatches each event in a fresh goroutine
+//   (see vendor/.../pkg/application/events.go:160 — `go func() {
+//   e.dispatchEventToWindows(thisEvent) }()`). Two consecutive Emit calls
+//   therefore race when reaching the main thread's ExecJS queue, which
+//   reorders e.g. TEXT_MESSAGE_START / TEXT_MESSAGE_CONTENT and breaks
+//   AG-UI's verifier ("No active text message found").
+//
+// Going through Window.DispatchWailsEvent instead funnels every event into
+// ExecJS → InvokeSync on the same caller goroutine, so events arrive at the
+// JS side in strict FIFO order. Frontend listeners on `Events.On("agui:event")`
+// keep working unchanged because DispatchWailsEvent ultimately calls
+// `window._wails.dispatchWailsEvent(...)` — the same hook the EventManager
+// uses internally.
 var emitFunc = func(name string, data ...any) bool {
-	return application.Get().Event.Emit(name, data...)
+	app := application.Get()
+	if app == nil {
+		return false
+	}
+	evt := &application.CustomEvent{Name: name}
+	if len(data) == 1 {
+		evt.Data = data[0]
+	} else if len(data) > 1 {
+		evt.Data = data
+	}
+	// Push synchronously to every open window. ExecJS internally schedules
+	// onto the main thread via InvokeSync, so back-to-back emit calls from
+	// the same goroutine are delivered to the webview in call order.
+	for _, w := range app.Window.GetAll() {
+		w.DispatchWailsEvent(evt)
+	}
+	return true
 }
 
 // Emitter translates a stream of harness StreamEvents into AG-UI events and
