@@ -259,15 +259,29 @@ export function SelectDirectory() {
 }
 
 /**
+ * SelectImageFiles 打开原生文件选择对话框，允许用户挑选一张或多张图片。
+ * 返回所选图片的绝对路径列表；用户取消时返回空数组。
+ * 前端在输入框输入 `@` 时会触发此对话框，把所选路径以 `@<path>` 形式回填到输入文本中。
+ * @returns {$CancellablePromise<string[]>}
+ */
+export function SelectImageFiles() {
+    return $Call.ByID(398204413).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType15($result);
+    }));
+}
+
+/**
  * SendMessage 发送消息（流式）
+ * imagePaths 为可选的图片路径列表（前端通过 SelectImageFiles 选择得到），非空时走多模态通道。
  * @param {string} projectID
  * @param {string} chatID
  * @param {string} content
+ * @param {string[]} imagePaths
  * @param {app$0.SendOptions} opts
  * @returns {$CancellablePromise<app$0.Message>}
  */
-export function SendMessage(projectID, chatID, content, opts) {
-    return $Call.ByID(1496882310, projectID, chatID, content, opts).then(/** @type {($result: any) => any} */(($result) => {
+export function SendMessage(projectID, chatID, content, imagePaths, opts) {
+    return $Call.ByID(1496882310, projectID, chatID, content, imagePaths, opts).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType4($result);
     }));
 }
@@ -306,3 +320,4 @@ const $$createType11 = apiclient$0.ProviderConfig.createFrom;
 const $$createType12 = $Create.Array($$createType11);
 const $$createType13 = apiclient$0.ProviderTemplate.createFrom;
 const $$createType14 = $Create.Array($$createType13);
+const $$createType15 = $Create.Array($Create.Any);

@@ -13,6 +13,7 @@ import {
   GetProvidersConfig,
   SetActiveProvider,
   SaveProvider,
+  SelectImageFiles,
 } from '../../bindings/github.com/zboya/deepcodex/app';
 import * as apiclient from '../../bindings/github.com/zboya/deepcodex/agent/apiclient/models';
 
@@ -23,9 +24,84 @@ interface InputAreaProps {
   onStop?: () => void;
   disabled?: boolean;
   compact?: boolean;
+  /** 当前已选中的待发送图片路径列表（受控） */
+  imagePaths?: string[];
+  /** 图片附件变更回调，由父组件维护实际状态 */
+  onChangeImagePaths?: (paths: string[]) => void;
 }
 
-const InputArea: React.FC<InputAreaProps> = ({ value, onChange, onSubmit, onStop, disabled, compact }) => {
+const InputArea: React.FC<InputAreaProps> = ({
+  value,
+  onChange,
+  onSubmit,
+  onStop,
+  disabled,
+  compact,
+  imagePaths = [],
+  onChangeImagePaths,
+}) => {
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  // 防止文件对话框重复触发（macOS 下连续输入两个 @ 会进入两次）
+  const pickingRef = useRef(false);
+
+  /**
+   * 弹出原生文件对话框选图片，并把选中的绝对路径以 `@<path>` 形式插入到当前光标位置。
+   * - 不修改用户已输入的其他文本
+   * - 把每个路径登记到父组件的 imagePaths 状态，发送时一并随消息提交
+   */
+  const pickImagesAtCaret = useCallback(async () => {
+    if (pickingRef.current) return;
+    pickingRef.current = true;
+    try {
+      const paths = (await SelectImageFiles()) || [];
+      if (!paths.length) return;
+
+      // 1. 文本：把 @<path> 插入到光标处（每条独占一行更清晰）
+      const ta = textareaRef.current;
+      const insertion = paths.map((p) => `@${p}`).join(' ');
+      if (ta) {
+        const start = ta.selectionStart ?? value.length;
+        const end = ta.selectionEnd ?? value.length;
+        const before = value.slice(0, start);
+        const after = value.slice(end);
+        // 若 before 末尾已经是用户刚刚输入的 `@`，复用它，避免变成 `@@/path`
+        const beforeStripped = before.endsWith('@') ? before.slice(0, -1) : before;
+        const next = `${beforeStripped}${insertion}${after}`;
+        onChange(next);
+        // 异步把光标移动到插入末尾
+        const caret = beforeStripped.length + insertion.length;
+        requestAnimationFrame(() => {
+          ta.focus();
+          ta.setSelectionRange(caret, caret);
+        });
+      } else {
+        // 兜底：直接拼到末尾
+        const stripped = value.endsWith('@') ? value.slice(0, -1) : value;
+        onChange(stripped + insertion);
+      }
+
+      // 2. 路径：合并到父组件状态，去重
+      if (onChangeImagePaths) {
+        const merged = Array.from(new Set([...imagePaths, ...paths]));
+        onChangeImagePaths(merged);
+      }
+    } catch (e) {
+      console.warn('[InputArea] SelectImageFiles failed', e);
+    } finally {
+      pickingRef.current = false;
+    }
+  }, [value, onChange, imagePaths, onChangeImagePaths]);
+
+  const removeImage = (path: string) => {
+    if (!onChangeImagePaths) return;
+    onChangeImagePaths(imagePaths.filter((p) => p !== path));
+    // 同步从输入框文本里移除对应的 `@<path>` 引用（如果存在）
+    const token = `@${path}`;
+    if (value.includes(token)) {
+      onChange(value.split(token).join('').replace(/\s{2,}/g, ' ').trimStart());
+    }
+  };
+
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     // IME 输入法合成期间的 Enter 不当作发送
     // @ts-ignore - isComposing 标准属性，但 React 类型有时缺失
@@ -33,6 +109,27 @@ const InputArea: React.FC<InputAreaProps> = ({ value, onChange, onSubmit, onStop
     if (e.key === 'Enter' && !e.shiftKey && !disabled) {
       e.preventDefault();
       onSubmit();
+    }
+  };
+
+  // 监听输入：当用户键入 `@` 时弹出图片选择对话框（仅独立 `@`，避免邮箱等误触发）。
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const next = e.target.value;
+    onChange(next);
+
+    // 仅当本次新增的字符正好是 `@`，并且 `@` 前没有非空白字符（避免误把邮箱或代码触发）
+    if (next.length === value.length + 1) {
+      const caret = e.target.selectionStart ?? next.length;
+      const inserted = next.slice(caret - 1, caret);
+      if (inserted === '@') {
+        const prev = caret >= 2 ? next[caret - 2] : '';
+        if (!prev || /\s/.test(prev)) {
+          // 异步触发，确保 onChange 状态先落到 React
+          setTimeout(() => {
+            pickImagesAtCaret();
+          }, 0);
+        }
+      }
     }
   };
 
@@ -108,17 +205,45 @@ const InputArea: React.FC<InputAreaProps> = ({ value, onChange, onSubmit, onStop
   return (
     <div className="input-wrap">
       <div className="input-card">
+        {/* 已选图片附件 chips */}
+        {imagePaths.length > 0 && (
+          <div className="input-attachments">
+            {imagePaths.map((p) => {
+              const name = p.split('/').pop() || p;
+              return (
+                <span key={p} className="attachment-chip" title={p}>
+                  <span className="attachment-name">🖼️ {name}</span>
+                  <button
+                    type="button"
+                    className="attachment-remove"
+                    onClick={() => removeImage(p)}
+                    title="移除"
+                  >
+                    ×
+                  </button>
+                </span>
+              );
+            })}
+          </div>
+        )}
+
         <textarea
+          ref={textareaRef}
           className="input-textarea"
-          placeholder={compact ? '要求后续变更' : '尽管问'}
+          placeholder={compact ? '要求后续变更（输入 @ 添加图片）' : '尽管问（输入 @ 添加图片）'}
           value={value}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={handleChange}
           onKeyDown={handleKeyDown}
           rows={compact ? 1 : 2}
         />
 
         <div className="input-toolbar">
-          <button className="tool-btn" title="附件">
+          <button
+            className="tool-btn"
+            title="添加图片"
+            onClick={pickImagesAtCaret}
+            type="button"
+          >
             <Plus size={16} />
           </button>
           <button className="tool-chip" title="选择权限">
@@ -203,7 +328,7 @@ const InputArea: React.FC<InputAreaProps> = ({ value, onChange, onSubmit, onStop
             <button
               className="send-btn"
               onClick={onSubmit}
-              disabled={!value.trim() || disabled}
+              disabled={(!value.trim() && imagePaths.length === 0) || disabled}
               title="发送 (Enter)"
             >
               <ArrowUp size={16} />

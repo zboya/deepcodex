@@ -192,16 +192,26 @@ function App() {
   // ─── 发消息 ──────────────────────────────────────────────────────────────────
 
   const handleSendMessage = useCallback(
-    async (text: string) => {
+    async (text: string, imagePaths: string[] = []) => {
       if (isStreaming) return;
       const agent = agentRef.current;
       if (!agent) return;
+
+      // 把图片路径以 markdown 形式附加在用户文本后，便于在聊天气泡中展示，
+      // 与后端 persistTurn 写入会话文件时的格式保持一致。
+      let displayText = text;
+      if (imagePaths.length > 0) {
+        const refs = imagePaths.map((p) => `![image](${p})`).join('\n');
+        displayText = text ? `${text}\n${refs}` : refs;
+        // 透传给 WailsAgent，由 run() 时随 SendMessage 一并发送给后端
+        agent.pendingImagePaths = imagePaths;
+      }
 
       // AG-UI 规范：在 runAgent 之前把用户消息推入 agent.messages
       agent.addMessage({
         id: `user-${Date.now()}`,
         role: 'user',
-        content: text,
+        content: displayText,
       });
       setIsStreaming(true);
 

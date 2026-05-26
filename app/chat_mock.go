@@ -207,7 +207,7 @@ func (c *Chat) mockSendMessage(ctx context.Context, chatID string) Message {
 		application.Get().Event.Emit("chat:done", fullText)
 	}
 	// 持久化本轮对话，使侧边栏"项目 → 会话列表"可见
-	c.persistTurn(chatID, "", fullText, int(usage.InputTokens), int(usage.OutputTokens))
+	c.persistTurn(chatID, "", fullText, nil, int(usage.InputTokens), int(usage.OutputTokens))
 	msg := Message{
 		ID:      fmt.Sprintf("msg-%d", time.Now().UnixNano()),
 		Role:    "assistant",

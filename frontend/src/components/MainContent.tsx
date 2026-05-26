@@ -16,7 +16,7 @@ interface MainContentProps {
   messages: ChatMessage[];
   isStreaming: boolean;
   activeProject?: Project | null;
-  onSend: (text: string) => void;
+  onSend: (text: string, imagePaths?: string[]) => void;
   onStop?: () => void;
   onLinkClick?: (url: string) => void;
 }
@@ -80,13 +80,18 @@ function formatToolArgs(args: string): string {
 
 const MainContent: React.FC<MainContentProps> = ({ messages, isStreaming, activeProject, onSend, onStop, onLinkClick }) => {
   const [text, setText] = useState('');
+  const [pendingImages, setPendingImages] = useState<string[]>([]);
   const [thinkingOpen, setThinkingOpen] = useState<Record<string, boolean>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const handleSubmit = () => {
-    if (!text.trim() || isStreaming) return;
-    onSend(text.trim());
+    if (isStreaming) return;
+    const trimmed = text.trim();
+    // 至少要有文本或图片之一
+    if (!trimmed && pendingImages.length === 0) return;
+    onSend(trimmed, pendingImages);
     setText('');
+    setPendingImages([]);
   };
 
   // 自动滚动到底部
@@ -127,6 +132,8 @@ const MainContent: React.FC<MainContentProps> = ({ messages, isStreaming, active
             onSubmit={handleSubmit}
             onStop={onStop}
             disabled={isStreaming}
+            imagePaths={pendingImages}
+            onChangeImagePaths={setPendingImages}
           />
 
           <div className="connector-row">
@@ -235,6 +242,8 @@ const MainContent: React.FC<MainContentProps> = ({ messages, isStreaming, active
                 onSubmit={handleSubmit}
                 onStop={onStop}
                 disabled={isStreaming}
+                imagePaths={pendingImages}
+                onChangeImagePaths={setPendingImages}
                 compact
               />
             </div>

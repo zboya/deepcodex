@@ -154,9 +154,10 @@ func (c *Chat) CreateChat(title string) ChatItem {
 
 // SendMessage 向对话发送消息，流式返回结果。
 // opts 为可选的 session 加载选项（continueSession / resumeSessionID）。
+// imagePaths 为可选的图片路径列表，非空时通过多模态消息发送（基于 ChatStreamWithMessage）。
 // 前端通过监听 "chat:delta" 事件接收流式文本片段，
 // 监听 "chat:done" 事件接收完成信号。
-func (c *Chat) SendMessage(chatID string, content string, opts SendOptions) Message {
+func (c *Chat) SendMessage(chatID string, content string, imagePaths []string, opts SendOptions) Message {
 	// 创建可取消的 context，并保存 cancel 供 StopMessage 使用
 	ctx, cancel := context.WithCancel(context.Background())
 	c.cancelMu.Lock()
@@ -199,8 +200,32 @@ func (c *Chat) SendMessage(chatID string, content string, opts SendOptions) Mess
 	em := agui.New(c.ctx, chatID)
 	em.RunStarted()
 
-	// 使用流式对话，通过 Wails Events 推送增量文本到前端
-	ch, err := c.harness.ChatStream(ctx, content)
+	// 根据是否有图片选择不同的发送通道：
+	//   - 有图片：构建 InputMessage 并调用 ChatStreamWithMessage（多模态）
+	//   - 无图片：保持原 ChatStream（纯文本）
+	var (
+		ch  <-chan apitypes.StreamEvent
+		err error
+	)
+	if len(imagePaths) > 0 {
+		msg, buildErr := buildImageMessage(content, imagePaths)
+		if buildErr != nil {
+			errMsg := fmt.Sprintf("[错误] 读取图片失败: %v", buildErr)
+			em.RunError(errMsg)
+			if EmitLegacyEvents {
+				application.Get().Event.Emit("chat:done", errMsg)
+			}
+			return Message{
+				ID:      fmt.Sprintf("msg-%d", time.Now().UnixNano()),
+				Role:    "assistant",
+				Content: errMsg,
+				Time:    time.Now().Unix(),
+			}
+		}
+		ch, err = c.harness.ChatStreamWithMessage(ctx, msg)
+	} else {
+		ch, err = c.harness.ChatStream(ctx, content)
+	}
 	if err != nil {
 		errMsg := fmt.Sprintf("[错误] %v", err)
 		em.RunError(errMsg)
@@ -261,7 +286,7 @@ func (c *Chat) SendMessage(chatID string, content string, opts SendOptions) Mess
 	}
 
 	// 持久化本轮对话到 sessionStore，保证侧边栏"项目 → 会话"列表能看到
-	c.persistTurn(chatID, content, fullText, usage.InputTokens, usage.OutputTokens)
+	c.persistTurn(chatID, content, fullText, imagePaths, usage.InputTokens, usage.OutputTokens)
 
 	return Message{
 		ID:      fmt.Sprintf("msg-%d", time.Now().UnixNano()),
@@ -376,7 +401,7 @@ func (c *Chat) Close() {
 // 这是 GUI 路径下让"项目 → 会话列表"能显示历史的关键：
 // SendMessage 完成一次流式回包后调用，使 sessionStore 落盘，
 // ListSessionsForProject 才能从 .port_sessions 里读到本会话。
-func (c *Chat) persistTurn(chatID, userText, assistantText string, inputTokens, outputTokens int) {
+func (c *Chat) persistTurn(chatID, userText, assistantText string, imagePaths []string, inputTokens, outputTokens int) {
 	if c.sessionStore == nil || chatID == "" {
 		return
 	}
@@ -390,10 +415,21 @@ func (c *Chat) persistTurn(chatID, userText, assistantText string, inputTokens, 
 		}
 	}
 
-	if userText != "" {
+	// 多模态消息：图片路径以 markdown 形式附加在文本中保存，
+	// 便于会话恢复时仍能看到 user 引用过的图片。
+	displayUserText := userText
+	if len(imagePaths) > 0 {
+		var buf []byte
+		for _, p := range imagePaths {
+			buf = append(buf, []byte(fmt.Sprintf("\n![image](%s)", p))...)
+		}
+		displayUserText = userText + string(buf)
+	}
+
+	if displayUserText != "" {
 		stored.Messages = append(stored.Messages, session.Message{
 			Role:    "user",
-			Content: userText,
+			Content: displayUserText,
 		})
 	}
 	if assistantText != "" {
@@ -485,4 +521,33 @@ func newHarnessForWorkDir(workDir string, extraOpts ...func(*harness.Options)) (
 		fn(&opts)
 	}
 	return harness.New(opts)
+}
+
+// buildImageMessage 构造一条包含若干图片 + 文本的多模态 user 消息。
+// 单张图片直接复用 apitypes.UserImageAndText；多张图片时按顺序加载并附在文本前。
+func buildImageMessage(text string, imagePaths []string) (apitypes.InputMessage, error) {
+	if len(imagePaths) == 0 {
+		return apitypes.UserText(text), nil
+	}
+	if len(imagePaths) == 1 {
+		return apitypes.UserImageAndText(text, imagePaths[0])
+	}
+
+	// 多图：复用 UserImageAndText 解析逻辑（按顺序加载），把 image blocks 拼起来再补一段 text。
+	blocks := make([]apitypes.InputContentBlock, 0, len(imagePaths)+1)
+	for _, p := range imagePaths {
+		single, err := apitypes.UserImageAndText("", p)
+		if err != nil {
+			return apitypes.InputMessage{}, fmt.Errorf("loading image %s: %w", p, err)
+		}
+		for _, b := range single.Content {
+			if b.Kind == "image" {
+				blocks = append(blocks, b)
+			}
+		}
+	}
+	if text != "" {
+		blocks = append(blocks, apitypes.InputContentBlock{Kind: "text", Text: text})
+	}
+	return apitypes.InputMessage{Role: "user", Content: blocks}, nil
 }

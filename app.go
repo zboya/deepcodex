@@ -88,6 +88,26 @@ func (a *App) SelectDirectory() (string, error) {
 		PromptForSingleSelection()
 }
 
+// SelectImageFiles 打开原生文件选择对话框，允许用户挑选一张或多张图片。
+// 返回所选图片的绝对路径列表；用户取消时返回空数组。
+// 前端在输入框输入 `@` 时会触发此对话框，把所选路径以 `@<path>` 形式回填到输入文本中。
+func (a *App) SelectImageFiles() ([]string, error) {
+	dlg := application.Get().Dialog.OpenFile().
+		SetTitle("选择图片").
+		CanChooseFiles(true).
+		CanChooseDirectories(false).
+		AddFilter("图片", "*.png;*.jpg;*.jpeg;*.gif;*.webp;*.bmp")
+
+	paths, err := dlg.PromptForMultipleSelection()
+	if err != nil {
+		return nil, err
+	}
+	if paths == nil {
+		return []string{}, nil
+	}
+	return paths, nil
+}
+
 // ─── Chat 相关接口（代理到对应项目或默认 Chat）────────────────────────────────
 
 // getChat 返回指定 projectID 对应的 Chat；projectID 为空时返回默认 Chat
@@ -153,8 +173,9 @@ func (a *App) GetSessionMessages(projectID string, sessionID string) []app.Messa
 }
 
 // SendMessage 发送消息（流式）
-func (a *App) SendMessage(projectID string, chatID string, content string, opts app.SendOptions) app.Message {
-	return a.getChat(projectID).SendMessage(chatID, content, opts)
+// imagePaths 为可选的图片路径列表（前端通过 SelectImageFiles 选择得到），非空时走多模态通道。
+func (a *App) SendMessage(projectID string, chatID string, content string, imagePaths []string, opts app.SendOptions) app.Message {
+	return a.getChat(projectID).SendMessage(chatID, content, imagePaths, opts)
 }
 
 // StopMessage 中止当前对话

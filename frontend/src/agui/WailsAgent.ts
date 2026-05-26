@@ -37,6 +37,15 @@ export class WailsAgent extends AbstractAgent {
   /** Project the run targets; can be updated between runs. */
   projectId: string;
 
+  /**
+   * Image paths to attach to the next outgoing user message.
+   * The frontend (InputArea) lets the user pick image files via the native
+   * file dialog (triggered by typing `@`); the resulting absolute paths are
+   * stored here and forwarded to the backend on the next `runAgent()` call.
+   * Cleared automatically once consumed.
+   */
+  pendingImagePaths: string[] = [];
+
   private runActive = false;
   private stopRequested = false;
 
@@ -88,10 +97,16 @@ export class WailsAgent extends AbstractAgent {
         .find((m) => m.role === 'user');
       const text = typeof lastUser?.content === 'string' ? lastUser.content : '';
 
+      // Snapshot & clear pending images so concurrent typing won't leak
+      // attachments into a subsequent run.
+      const imagePaths = this.pendingImagePaths;
+      this.pendingImagePaths = [];
+
       SendMessage(
         this.projectId,
         input.threadId, // threadId == backend chatID / sessionID
         text,
+        imagePaths,
         {
           continueSession: false,
           resumeSessionID: input.threadId,
