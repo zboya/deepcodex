@@ -118,12 +118,14 @@ function App() {
 
   const handleSelectProject = useCallback((id: string) => {
     setActiveProjectId(id);
-    // 若切换项目，清空当前消息
+    // 若切换项目，清空当前消息并起新会话
     if (id !== activeProjectId) {
-      setActiveChatId(null);
+      setActiveChatId(`chat-${Date.now()}`);
       setMessages([]);
+    } else if (!activeChatId) {
+      setActiveChatId(`chat-${Date.now()}`);
     }
-  }, [activeProjectId]);
+  }, [activeProjectId, activeChatId]);
 
   const handleSelectChat = useCallback(async (projectId: string, chatId: string) => {
     setActiveProjectId(projectId);
@@ -145,7 +147,7 @@ function App() {
   }, []);
 
   const handleNewChat = () => {
-    setActiveChatId(null);
+    setActiveChatId(`chat-${Date.now()}`);
     setMessages([]);
   };
 

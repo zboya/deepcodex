@@ -4,7 +4,6 @@ import {
   Search,
   Grid,
   Clock,
-  Smartphone,
   FolderClosed,
   Settings,
 } from './Icons';
@@ -99,8 +98,20 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
   const [hovering, setHovering] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
+  // 当本项目被选中、或当前 activeChatId 属于本项目，自动展开会话列表
+  const containsActive = !!activeChatId && sessions.some((s) => s.id === activeChatId);
+  const effectiveOpen = open || isActive || containsActive;
+
+  // 项目变为激活但还没拉过 sessions 时，主动加载一次
+  React.useEffect(() => {
+    if (isActive) {
+      onLoadSessions();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isActive]);
+
   const handleToggle = () => {
-    const next = !open;
+    const next = !effectiveOpen;
     setOpen(next);
     if (next) {
       onLoadSessions();
@@ -127,7 +138,7 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
         onMouseLeave={() => { setHovering(false); setConfirmDelete(false); }}
         onClick={handleToggle}
       >
-        <ChevronRightIcon size={11} open={open} />
+        <ChevronRightIcon size={11} open={effectiveOpen} />
         <FolderClosed size={14} />
         <span className="proj-name">{project.name}</span>
         <span className="proj-path" title={project.path}>
@@ -147,7 +158,7 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
       </div>
 
       {/* 展开的会话列表 */}
-      {open && (
+      {effectiveOpen && (
         <div className="proj-sessions">
           {sessions.length === 0 ? (
             <div className="proj-session-empty">暂无会话</div>
@@ -210,10 +221,6 @@ const Sidebar: React.FC<SidebarProps> = ({
         <button className="nav-item">
           <Clock size={16} />
           <span>自动化</span>
-        </button>
-        <button className="nav-item">
-          <Smartphone size={16} />
-          <span>Codex 移动版</span>
         </button>
       </nav>
 

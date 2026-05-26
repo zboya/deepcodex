@@ -260,6 +260,9 @@ func (c *Chat) SendMessage(chatID string, content string, opts SendOptions) Mess
 		application.Get().Event.Emit("chat:done", fullText)
 	}
 
+	// 持久化本轮对话到 sessionStore，保证侧边栏"项目 → 会话"列表能看到
+	c.persistTurn(chatID, content, fullText, usage.InputTokens, usage.OutputTokens)
+
 	return Message{
 		ID:      fmt.Sprintf("msg-%d", time.Now().UnixNano()),
 		Role:    "assistant",
@@ -364,6 +367,51 @@ func (c *Chat) GetWorkDir() string {
 func (c *Chat) Close() {
 	if c.harness != nil {
 		c.harness.Close()
+	}
+}
+
+// persistTurn 把本轮的 user / assistant 消息追加到 chatID 对应的 session 文件。
+// 若 session 不存在则新建。失败仅记录日志，不影响主流程。
+//
+// 这是 GUI 路径下让"项目 → 会话列表"能显示历史的关键：
+// SendMessage 完成一次流式回包后调用，使 sessionStore 落盘，
+// ListSessionsForProject 才能从 .port_sessions 里读到本会话。
+func (c *Chat) persistTurn(chatID, userText, assistantText string, inputTokens, outputTokens int) {
+	if c.sessionStore == nil || chatID == "" {
+		return
+	}
+
+	stored, err := c.sessionStore.Load(chatID)
+	if err != nil {
+		// 不存在则新建一份
+		stored = session.StoredSession{
+			SessionID:  chatID,
+			WorkingDir: c.workDir,
+		}
+	}
+
+	if userText != "" {
+		stored.Messages = append(stored.Messages, session.Message{
+			Role:    "user",
+			Content: userText,
+		})
+	}
+	if assistantText != "" {
+		stored.Messages = append(stored.Messages, session.Message{
+			Role:    "assistant",
+			Content: assistantText,
+		})
+	}
+	// 累计 token 使用
+	stored.InputTokens += inputTokens
+	stored.OutputTokens += outputTokens
+	if stored.WorkingDir == "" {
+		stored.WorkingDir = c.workDir
+	}
+
+	if _, err := c.sessionStore.Save(stored); err != nil {
+		slog.Warn("[app] persistTurn: save session failed",
+			"chatID", chatID, "err", err)
 	}
 }
 
