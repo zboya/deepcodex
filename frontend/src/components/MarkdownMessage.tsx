@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import 'highlight.js/styles/github-dark.css';
+import { BrowserOpenURL } from '../../wailsjs/runtime/runtime';
 import MermaidBlock from './MermaidBlock';
 
 interface MarkdownMessageProps {
@@ -32,12 +33,14 @@ const MarkdownMessage: React.FC<MarkdownMessageProps> = ({ content, onLinkClick,
               <a
                 {...rest}
                 href={url}
-                target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
                   if (onLinkClick && url) {
-                    e.preventDefault();
                     onLinkClick(url);
+                  } else if (url) {
+                    BrowserOpenURL(url);
                   }
                 }}
               >

@@ -13,6 +13,7 @@ import {
   SelectDirectory,
   OpenBrowserWindow,
 } from '../wailsjs/go/main/App';
+import { BrowserOpenURL } from '../wailsjs/runtime/runtime';
 import { WailsAgent } from './agui/WailsAgent';
 import type { Message as AGUIMessage } from '@ag-ui/core';
 
@@ -33,6 +34,31 @@ function App() {
 
   useEffect(() => {
     loadProjects();
+  }, []);
+
+  // 全局拦截链接点击：统一通过系统浏览器打开外链，
+  // 避免 macOS 下 Wails WebView 的 openWebViewWindow 因 nil title 崩溃。
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      const anchor = target.closest('a') as HTMLAnchorElement | null;
+      if (!anchor) return;
+      const href = anchor.getAttribute('href') || '';
+      if (!href) return;
+      // 只拦截 http(s) 外链；忽略锚点、相对路径、javascript: 等
+      if (!/^https?:\/\//i.test(href)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      BrowserOpenURL(href);
+    };
+    // 使用 capture 阶段，先于任何组件自带的 onClick 处理，避免冒泡到原生 WebKit 触发新窗口
+    document.addEventListener('click', handler, true);
+    document.addEventListener('auxclick', handler, true);
+    return () => {
+      document.removeEventListener('click', handler, true);
+      document.removeEventListener('auxclick', handler, true);
+    };
   }, []);
 
   const loadProjects = async () => {
