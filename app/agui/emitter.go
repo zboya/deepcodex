@@ -13,7 +13,7 @@ import (
 	"log/slog"
 
 	aguievents "github.com/ag-ui-protocol/ag-ui/sdks/community/go/pkg/core/events"
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"github.com/zboya/deepcodex/agent/apitypes"
 )
@@ -21,10 +21,12 @@ import (
 // Channel is the Wails event name used for all AG-UI events.
 const Channel = "agui:event"
 
-// emitFunc is the indirection used to send events to the Wails runtime.
+// emitFunc is the indirection used to send events to the Wails event bus.
 // Production code keeps the default; tests override this var to capture events
 // without needing a live Wails runtime.
-var emitFunc = runtime.EventsEmit
+var emitFunc = func(name string, data ...any) bool {
+	return application.Get().Event.Emit(name, data...)
+}
 
 // Emitter translates a stream of harness StreamEvents into AG-UI events and
 // pushes each one to the frontend through Wails runtime.EventsEmit.
@@ -72,7 +74,7 @@ func (e *Emitter) emit(evt aguievents.Event) {
 		return
 	}
 	// Use json.RawMessage so Wails forwards the bytes as-is (no double encode).
-	emitFunc(e.ctx, Channel, json.RawMessage(data))
+	emitFunc(Channel, json.RawMessage(data))
 }
 
 // RunStarted emits RUN_STARTED. Must be called once at the beginning of a run.

@@ -3,7 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import 'highlight.js/styles/github-dark.css';
-import { BrowserOpenURL } from '../../wailsjs/runtime/runtime';
+import { Browser } from '@wailsio/runtime';
 import MermaidBlock from './MermaidBlock';
 
 interface MarkdownMessageProps {
@@ -40,7 +40,7 @@ const MarkdownMessage: React.FC<MarkdownMessageProps> = ({ content, onLinkClick,
                   if (onLinkClick && url) {
                     onLinkClick(url);
                   } else if (url) {
-                    BrowserOpenURL(url);
+                    Browser.OpenURL(url);
                   }
                 }}
               >

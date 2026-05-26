@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"log/slog"
 	"path/filepath"
+	"strings"
 	"sync"
 
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/zboya/deepcodex/agent/apiclient"
 	"github.com/zboya/deepcodex/agent/harness"
 	"github.com/zboya/deepcodex/agent/session"
@@ -38,9 +39,8 @@ func NewApp() *App {
 	}
 }
 
-// startup is called when the app starts. The context is saved
-// so we can call the runtime methods
-func (a *App) startup(ctx context.Context) {
+// ServiceStartup is called by Wails v3 when the bound service starts.
+func (a *App) ServiceStartup(ctx context.Context, _ application.ServiceOptions) error {
 	a.ctx = ctx
 
 	// 启动期写入内置 provider 模板, 让用户在模型设置页可看到全部支持的 provider.
@@ -56,14 +56,15 @@ func (a *App) startup(ctx context.Context) {
 	})
 	if err != nil {
 		slog.Error(fmt.Sprintf("[app] failed to initialize default harness: %v", err))
-		return
+		return nil
 	}
 	a.defaultChat = app.NewChat(ctx, h)
 	slog.Info(fmt.Sprintf("[app] default harness initialized, model=%s", h.Model))
+	return nil
 }
 
-// shutdown is called when the app is closing
-func (a *App) shutdown(ctx context.Context) {
+// ServiceShutdown is called by Wails v3 when the bound service shuts down.
+func (a *App) ServiceShutdown() error {
 	if a.defaultChat != nil {
 		a.defaultChat.Close()
 	}
@@ -72,19 +73,19 @@ func (a *App) shutdown(ctx context.Context) {
 		c.Close()
 	}
 	a.chatMu.Unlock()
+	return nil
 }
 
 // ─── 项目相关接口（覆盖/扩展 Projects 方法）─────────────────────────────────
 
 // SelectDirectory 打开原生目录选择对话框，返回用户选择的路径
 func (a *App) SelectDirectory() (string, error) {
-	path, err := runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
-		Title: "选择项目目录",
-	})
-	if err != nil {
-		return "", err
-	}
-	return path, nil
+	return application.Get().Dialog.OpenFile().
+		SetTitle("选择项目目录").
+		CanChooseFiles(false).
+		CanChooseDirectories(true).
+		CanCreateDirectories(true).
+		PromptForSingleSelection()
 }
 
 // ─── Chat 相关接口（代理到对应项目或默认 Chat）────────────────────────────────
@@ -173,7 +174,7 @@ func (a *App) GetUsage(projectID string) map[string]interface{} {
 
 // Close 关闭（前端调用）
 func (a *App) Close() {
-	a.shutdown(a.ctx)
+	_ = a.ServiceShutdown()
 }
 
 // ─── session store 直接查询（不依赖 harness）────────────────────────────────
@@ -206,12 +207,19 @@ func (a *App) ListSessionsForProject(projectID string) []app.ChatItem {
 	return items
 }
 
-// OpenBrowserWindow 在新的原生 WebView 子窗口中打开 URL。
-// macOS 使用 WKWebView 窗口，其他平台回退到系统浏览器。
+// OpenBrowserWindow 使用 Wails v3 官方多窗口 API 打开内置浏览器窗口。
 func (a *App) OpenBrowserWindow(url string) {
-	if nativeBrowserSupported {
-		openBrowserWindowNative(url, url, 1200, 800)
-	} else {
-		runtime.BrowserOpenURL(a.ctx, url)
+	url = strings.TrimSpace(url)
+	if url == "" {
+		return
 	}
+	application.Get().Window.NewWithOptions(application.WebviewWindowOptions{
+		Title:            url,
+		Width:            1200,
+		Height:           800,
+		MinWidth:         800,
+		MinHeight:        500,
+		URL:              url,
+		BackgroundColour: application.NewRGB(255, 255, 255),
+	})
 }

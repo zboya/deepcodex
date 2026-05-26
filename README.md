@@ -45,14 +45,14 @@ deepcodex/
 
 ### 环境要求
 
-- Go ≥ 1.21
+- Go ≥ 1.25
 - Node.js ≥ 18
-- Wails CLI： `go install github.com/wailsapp/wails/v2/cmd/wails@latest`
+- Wails v3 CLI： `go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha.96`
 
 ### 开发模式
 
 ```bash
-wails dev
+wails3 dev
 ```
 
 ### 打包构建

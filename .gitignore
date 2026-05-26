@@ -5,3 +5,5 @@ node_modules
 frontend/dist
 frontend/package.json.md5
 .DS_Store
+.task
+bin/

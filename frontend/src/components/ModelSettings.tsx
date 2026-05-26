@@ -17,8 +17,8 @@ import {
   SetActiveProvider,
   ListProviderModels,
   GetProvidersConfigPath,
-} from '../../wailsjs/go/main/App';
-import { apiclient } from '../../wailsjs/go/models';
+} from '../../bindings/github.com/zboya/deepcodex/app';
+import * as apiclient from '../../bindings/github.com/zboya/deepcodex/agent/apiclient/models';
 import { PlusCircle, Edit, Trash, Check, X, Refresh } from './SettingsIcons';
 
 // 支持的 provider 协议种类, 与后端 ProviderConfig.ToProviderKind() 对齐.

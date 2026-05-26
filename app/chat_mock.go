@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"github.com/zboya/deepcodex/app/agui"
 )
@@ -78,7 +78,7 @@ func (c *Chat) mockSendMessage(ctx context.Context, chatID string) Message {
 		case <-ctx.Done():
 			em.RunError("cancelled")
 			if EmitLegacyEvents {
-				runtime.EventsEmit(c.ctx, "chat:stopped", fullText)
+				application.Get().Event.Emit("chat:stopped", fullText)
 			}
 			return Message{
 				ID:      fmt.Sprintf("msg-%d", time.Now().UnixNano()),
@@ -100,7 +100,7 @@ func (c *Chat) mockSendMessage(ctx context.Context, chatID string) Message {
 				case <-ctx.Done():
 					em.RunError("cancelled")
 					if EmitLegacyEvents {
-						runtime.EventsEmit(c.ctx, "chat:stopped", fullText)
+						application.Get().Event.Emit("chat:stopped", fullText)
 					}
 					return Message{
 						ID:      fmt.Sprintf("msg-%d", time.Now().UnixNano()),
@@ -111,7 +111,7 @@ func (c *Chat) mockSendMessage(ctx context.Context, chatID string) Message {
 				default:
 				}
 				em.ToolCallArgs(toolIndex, string(r))
-				time.Sleep(20 * time.Millisecond)
+				time.Sleep(10 * time.Millisecond)
 			}
 
 			// Emit TOOL_CALL_END
@@ -119,7 +119,7 @@ func (c *Chat) mockSendMessage(ctx context.Context, chatID string) Message {
 			toolIndex++
 
 			// Simulate tool execution delay
-			time.Sleep(300 * time.Millisecond)
+			time.Sleep(10 * time.Millisecond)
 		} else {
 			// === Text Step ===
 			// Stream text character by character
@@ -128,7 +128,7 @@ func (c *Chat) mockSendMessage(ctx context.Context, chatID string) Message {
 				case <-ctx.Done():
 					em.RunError("cancelled")
 					if EmitLegacyEvents {
-						runtime.EventsEmit(c.ctx, "chat:stopped", fullText)
+						application.Get().Event.Emit("chat:stopped", fullText)
 					}
 					return Message{
 						ID:      fmt.Sprintf("msg-%d", time.Now().UnixNano()),
@@ -142,9 +142,9 @@ func (c *Chat) mockSendMessage(ctx context.Context, chatID string) Message {
 				fullText += piece
 				em.TextDelta(piece)
 				if EmitLegacyEvents {
-					runtime.EventsEmit(c.ctx, "chat:delta", piece)
+					application.Get().Event.Emit("chat:delta", piece)
 				}
-				time.Sleep(30 * time.Millisecond)
+				time.Sleep(10 * time.Millisecond)
 			}
 		}
 	}
@@ -155,7 +155,7 @@ func (c *Chat) mockSendMessage(ctx context.Context, chatID string) Message {
 		OutputTokens: 512,
 	})
 	if EmitLegacyEvents {
-		runtime.EventsEmit(c.ctx, "chat:done", fullText)
+		application.Get().Event.Emit("chat:done", fullText)
 	}
 	return Message{
 		ID:      fmt.Sprintf("msg-%d", time.Now().UnixNano()),

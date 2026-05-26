@@ -23,8 +23,8 @@ import { AbstractAgent, type AgentConfig } from '@ag-ui/client';
 import { EventType, type BaseEvent, type RunAgentInput } from '@ag-ui/core';
 import { Observable } from 'rxjs';
 
-import { EventsOn } from '../../wailsjs/runtime/runtime';
-import { SendMessage, StopMessage } from '../../wailsjs/go/main/App';
+import { Events } from '@wailsio/runtime';
+import { SendMessage, StopMessage } from '../../bindings/github.com/zboya/deepcodex/app';
 
 const CHANNEL = 'agui:event';
 
@@ -37,9 +37,22 @@ export class WailsAgent extends AbstractAgent {
   /** Project the run targets; can be updated between runs. */
   projectId: string;
 
+  private runActive = false;
+  private stopRequested = false;
+
   constructor({ projectId = '', ...rest }: WailsAgentConfig = {}) {
     super(rest);
     this.projectId = projectId;
+  }
+
+  override abortRun() {
+    this.stopRequested = true;
+    if (this.runActive) {
+      StopMessage(this.projectId).catch(() => {
+        /* best-effort cancel */
+      });
+    }
+    super.abortRun();
   }
 
   /**
@@ -49,17 +62,20 @@ export class WailsAgent extends AbstractAgent {
   run(input: RunAgentInput): Observable<BaseEvent> {
     return new Observable<BaseEvent>((subscriber) => {
       let cancelled = false;
+      this.runActive = true;
+      this.stopRequested = false;
 
       // 1. Listen for AG-UI events flowing back from the backend.
-      const off = EventsOn(CHANNEL, (raw: unknown) => {
+      const off = Events.On(CHANNEL, (event) => {
         if (cancelled) return;
-        const evt = decodeEvent(raw);
+        const evt = decodeEvent(event.data);
         if (!evt) return;
         subscriber.next(evt);
         if (
           evt.type === EventType.RUN_FINISHED ||
           evt.type === EventType.RUN_ERROR
         ) {
+          this.runActive = false;
           subscriber.complete();
         }
       });
@@ -81,16 +97,17 @@ export class WailsAgent extends AbstractAgent {
           resumeSessionID: input.threadId,
         },
       ).catch((err: unknown) => {
+        this.runActive = false;
         if (!cancelled) subscriber.error(err);
       });
 
-      // 3. Teardown: stop the backend run and unwire the listener.
+      // 3. Teardown: unwire the listener. Do not call StopMessage here:
+      // AG-UI also tears subscriptions down after normal completion, and
+      // treating every teardown as cancellation races with the mock stream.
       return () => {
         cancelled = true;
         off();
-        StopMessage(this.projectId).catch(() => {
-          /* best-effort cancel */
-        });
+        this.runActive = false;
       };
     });
   }

@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/zboya/deepcodex/agent/agent"
 	"github.com/zboya/deepcodex/agent/apitypes"
 	"github.com/zboya/deepcodex/agent/harness"
@@ -205,7 +205,7 @@ func (c *Chat) SendMessage(chatID string, content string, opts SendOptions) Mess
 		errMsg := fmt.Sprintf("[错误] %v", err)
 		em.RunError(errMsg)
 		if EmitLegacyEvents {
-			runtime.EventsEmit(c.ctx, "chat:done", errMsg)
+			application.Get().Event.Emit("chat:done", errMsg)
 		}
 		return Message{
 			ID:      fmt.Sprintf("msg-%d", time.Now().UnixNano()),
@@ -222,7 +222,7 @@ func (c *Chat) SendMessage(chatID string, content string, opts SendOptions) Mess
 		case <-ctx.Done():
 			em.RunError("cancelled")
 			if EmitLegacyEvents {
-				runtime.EventsEmit(c.ctx, "chat:stopped", fullText)
+				application.Get().Event.Emit("chat:stopped", fullText)
 			}
 			return Message{
 				ID:      fmt.Sprintf("msg-%d", time.Now().UnixNano()),
@@ -237,13 +237,13 @@ func (c *Chat) SendMessage(chatID string, content string, opts SendOptions) Mess
 		if ev.BlockDelta != nil && ev.BlockDelta.Kind == "text_delta" {
 			fullText += ev.BlockDelta.Text
 			if EmitLegacyEvents {
-				runtime.EventsEmit(c.ctx, "chat:delta", ev.BlockDelta.Text)
+				application.Get().Event.Emit("chat:delta", ev.BlockDelta.Text)
 			}
 		}
 		if ev.ContentBlock != nil && ev.ContentBlock.Kind == "text" && ev.ContentBlock.Text != "" {
 			fullText += ev.ContentBlock.Text
 			if EmitLegacyEvents {
-				runtime.EventsEmit(c.ctx, "chat:delta", ev.ContentBlock.Text)
+				application.Get().Event.Emit("chat:delta", ev.ContentBlock.Text)
 			}
 		}
 
@@ -257,7 +257,7 @@ func (c *Chat) SendMessage(chatID string, content string, opts SendOptions) Mess
 		OutputTokens: usage.OutputTokens,
 	})
 	if EmitLegacyEvents {
-		runtime.EventsEmit(c.ctx, "chat:done", fullText)
+		application.Get().Event.Emit("chat:done", fullText)
 	}
 
 	return Message{

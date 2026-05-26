@@ -12,8 +12,7 @@ import {
   GetSessionMessages,
   SelectDirectory,
   OpenBrowserWindow,
-} from '../wailsjs/go/main/App';
-import { BrowserOpenURL } from '../wailsjs/runtime/runtime';
+} from '../bindings/github.com/zboya/deepcodex/app';
 import { WailsAgent } from './agui/WailsAgent';
 import type { Message as AGUIMessage } from '@ag-ui/core';
 
@@ -50,7 +49,7 @@ function App() {
       if (!/^https?:\/\//i.test(href)) return;
       e.preventDefault();
       e.stopPropagation();
-      BrowserOpenURL(href);
+      OpenBrowserWindow(href);
     };
     // 使用 capture 阶段，先于任何组件自带的 onClick 处理，避免冒泡到原生 WebKit 触发新窗口
     document.addEventListener('click', handler, true);
@@ -180,8 +179,9 @@ function App() {
     agentRef.current = agent;
     return () => {
       unsub.unsubscribe();
-      agent.abortRun();
-      agentRef.current = null;
+      if (agentRef.current === agent) {
+        agentRef.current = null;
+      }
     };
     // 仅在 chat / project 切换时重建，messages 初始化只取一次
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -13,8 +13,8 @@ import {
   GetProvidersConfig,
   SetActiveProvider,
   SaveProvider,
-} from '../../wailsjs/go/main/App';
-import { apiclient } from '../../wailsjs/go/models';
+} from '../../bindings/github.com/zboya/deepcodex/app';
+import * as apiclient from '../../bindings/github.com/zboya/deepcodex/agent/apiclient/models';
 
 interface InputAreaProps {
   value: string;

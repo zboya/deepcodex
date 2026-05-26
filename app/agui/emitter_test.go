@@ -6,25 +6,23 @@ import (
 	"sync"
 	"testing"
 
-	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
-
 	"github.com/zboya/deepcodex/agent/apitypes"
 )
 
 // captured is a single Wails event captured during a test (decoded back to a
 // generic map so we can assert on AG-UI fields by name).
 type captured struct {
-	Type      string                 `json:"type"`
-	MessageID string                 `json:"messageId,omitempty"`
-	Delta     string                 `json:"delta,omitempty"`
-	Role      string                 `json:"role,omitempty"`
-	ThreadID  string                 `json:"threadId,omitempty"`
-	RunID     string                 `json:"runId,omitempty"`
-	Outcome   map[string]interface{} `json:"outcome,omitempty"`
-	Result    map[string]interface{} `json:"result,omitempty"`
-	ToolCallID   string `json:"toolCallId,omitempty"`
-	ToolCallName string `json:"toolCallName,omitempty"`
-	Message string `json:"message,omitempty"`
+	Type         string                 `json:"type"`
+	MessageID    string                 `json:"messageId,omitempty"`
+	Delta        string                 `json:"delta,omitempty"`
+	Role         string                 `json:"role,omitempty"`
+	ThreadID     string                 `json:"threadId,omitempty"`
+	RunID        string                 `json:"runId,omitempty"`
+	Outcome      map[string]interface{} `json:"outcome,omitempty"`
+	Result       map[string]interface{} `json:"result,omitempty"`
+	ToolCallID   string                 `json:"toolCallId,omitempty"`
+	ToolCallName string                 `json:"toolCallName,omitempty"`
+	Message      string                 `json:"message,omitempty"`
 }
 
 // captureRuntime intercepts wruntime.EventsEmit calls without needing a real
@@ -47,13 +45,13 @@ func withCapturedEmits(t *testing.T, fn func(emit *[]captured)) []captured {
 		events []captured
 	)
 	prev := emitFunc
-	emitFunc = func(_ context.Context, _ string, optionalData ...interface{}) {
+	emitFunc = func(_ string, optionalData ...any) bool {
 		if len(optionalData) == 0 {
-			return
+			return true
 		}
 		raw, ok := optionalData[0].(json.RawMessage)
 		if !ok {
-			return
+			return true
 		}
 		var c captured
 		if err := json.Unmarshal(raw, &c); err != nil {
@@ -62,6 +60,7 @@ func withCapturedEmits(t *testing.T, fn func(emit *[]captured)) []captured {
 		mu.Lock()
 		events = append(events, c)
 		mu.Unlock()
+		return true
 	}
 	t.Cleanup(func() { emitFunc = prev })
 	fn(&events)
@@ -202,6 +201,3 @@ func TestEmitter_RunError(t *testing.T) {
 		t.Errorf("error message = %q", events[4].Message)
 	}
 }
-
-// silence the import linter when tests are skipped.
-var _ = wruntime.EventsEmit
