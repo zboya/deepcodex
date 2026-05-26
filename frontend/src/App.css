@@ -686,6 +686,73 @@ textarea {
   color: #e0e0e0;
 }
 
+/* ===== 工具调用块 ===== */
+.tool-calls-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 8px 0;
+}
+
+.tool-call-block {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.tool-call-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #b0b0b0;
+  cursor: pointer;
+  transition: background 0.15s;
+  width: 100%;
+  text-align: left;
+}
+
+.tool-call-header:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #e0e0e0;
+}
+
+.tool-call-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.tool-call-label {
+  flex: 1;
+  font-weight: 500;
+}
+
+.tool-call-chevron {
+  display: inline-flex;
+  align-items: center;
+  transition: transform 0.15s;
+  color: #666;
+}
+
+.tool-call-detail {
+  padding: 6px 12px 10px 34px;
+}
+
+.tool-call-args {
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #999;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin: 0;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
 /* 底部固定输入栏 */
 .chat-input-bar {
   flex-shrink: 0;

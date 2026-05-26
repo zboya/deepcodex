@@ -279,15 +279,24 @@ function aguiMessagesToChat(msgs: readonly AGUIMessage[]): ChatMessage[] {
   for (const m of msgs) {
     if (m.role !== 'user' && m.role !== 'assistant') continue;
     const content = typeof m.content === 'string' ? m.content : '';
-    out.push({
+    const item: ChatMessage = {
       id: m.id,
       role: m.role,
       content,
       time: Date.now() / 1000,
-      // 最后一条 assistant 消息若仍在生成中（无 content 或刚开始），可由
-      // RUN_FINISHED 后的 onMessagesChanged 再次刷新清掉 streaming 标记。
       streaming: false,
-    });
+    };
+    if (m.role === 'assistant') {
+      const tcs = (m as { toolCalls?: Array<{ id: string; function: { name: string; arguments: string } }> }).toolCalls;
+      if (tcs && tcs.length > 0) {
+        item.toolCalls = tcs.map((t) => ({
+          id: t.id,
+          name: t.function?.name ?? '',
+          args: t.function?.arguments ?? '',
+        }));
+      }
+    }
+    out.push(item);
   }
   return out;
 }

@@ -10,7 +10,7 @@ import {
   Maximize,
   ChevronDown,
 } from './Icons';
-import { ChatMessage, Project } from '../types';
+import { ChatMessage, ChatToolCall, Project } from '../types';
 
 interface MainContentProps {
   messages: ChatMessage[];
@@ -19,6 +19,63 @@ interface MainContentProps {
   onSend: (text: string) => void;
   onStop?: () => void;
   onLinkClick?: (url: string) => void;
+}
+
+// ===== 工具调用图标映射 =====
+const toolIconMap: Record<string, string> = {
+  ListDirectoryTool: '📂',
+  GrepTool: '🔍',
+  FileReadTool: '📄',
+  BashTool: '⚡',
+  WebSearchTool: '🌐',
+};
+
+function getToolIcon(name: string): string {
+  return toolIconMap[name] || '🔧';
+}
+
+function getToolLabel(name: string): string {
+  const labels: Record<string, string> = {
+    ListDirectoryTool: '已列出目录',
+    GrepTool: '已搜索代码',
+    FileReadTool: '已读取文件',
+    BashTool: '已执行命令',
+    WebSearchTool: '已搜索网页',
+  };
+  return labels[name] || `已调用 ${name}`;
+}
+
+// ===== 工具调用详情组件 =====
+const ToolCallBlock: React.FC<{ toolCall: ChatToolCall }> = ({ toolCall }) => {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="tool-call-block">
+      <button className="tool-call-header" onClick={() => setExpanded(!expanded)}>
+        <span className="tool-call-icon">{getToolIcon(toolCall.name)}</span>
+        <span className="tool-call-label">{getToolLabel(toolCall.name)}</span>
+        <span
+          className="tool-call-chevron"
+          style={{ transform: expanded ? 'rotate(180deg)' : 'none' }}
+        >
+          <ChevronDown size={12} />
+        </span>
+      </button>
+      {expanded && (
+        <div className="tool-call-detail">
+          <pre className="tool-call-args">{formatToolArgs(toolCall.args)}</pre>
+        </div>
+      )}
+    </div>
+  );
+};
+
+function formatToolArgs(args: string): string {
+  try {
+    return JSON.stringify(JSON.parse(args), null, 2);
+  } catch {
+    return args;
+  }
 }
 
 const MainContent: React.FC<MainContentProps> = ({ messages, isStreaming, activeProject, onSend, onStop, onLinkClick }) => {
@@ -38,6 +95,9 @@ const MainContent: React.FC<MainContentProps> = ({ messages, isStreaming, active
   }, [messages]);
 
   const hasMessages = messages.length > 0;
+
+  // 将连续的 assistant 消息分组（同一轮工具调用 + 文本是连续的）
+  const groupedMessages = groupMessages(messages);
 
   return (
     <main className={`main ${hasMessages ? 'main-chat' : 'main-empty'}`}>
@@ -92,62 +152,70 @@ const MainContent: React.FC<MainContentProps> = ({ messages, isStreaming, active
         <>
           <div className="chat-scroll">
             <div className="chat-content">
-              {messages.map((msg) => {
-                if (msg.role === 'user') {
+              {groupedMessages.map((group) => {
+                if (group.type === 'user') {
                   return (
-                    <div key={msg.id} className="msg-row msg-row-user">
-                      <div className="msg-bubble-user">{msg.content}</div>
+                    <div key={group.id} className="msg-row msg-row-user">
+                      <div className="msg-bubble-user">{group.content}</div>
                     </div>
                   );
                 }
 
-                // assistant
-                const showThinking = msg.streaming && !msg.content;
-                const thinkOpen = !!thinkingOpen[msg.id];
+                // assistant group: 连续的 assistant 消息合并展示
+                const isGroupStreaming = group.messages.some((m) => m.streaming);
+                const isLastGroup = group === groupedMessages[groupedMessages.length - 1];
+                const thinkOpen = !!thinkingOpen[group.id];
 
                 return (
-                  <div key={msg.id} className="msg-row msg-row-ai">
+                  <div key={group.id} className="msg-row msg-row-ai">
                     {/* 思考状态 / 已处理折叠条 */}
-                    {(showThinking || msg.content) && (
-                      <button
-                        className="think-toggle"
-                        onClick={() =>
-                          setThinkingOpen((s) => ({ ...s, [msg.id]: !s[msg.id] }))
-                        }
+                    <button
+                      className="think-toggle"
+                      onClick={() =>
+                        setThinkingOpen((s) => ({ ...s, [group.id]: !s[group.id] }))
+                      }
+                    >
+                      <span>{isGroupStreaming ? '思考中…' : '已处理'}</span>
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          transform: thinkOpen ? 'rotate(180deg)' : 'none',
+                          transition: 'transform 0.15s',
+                        }}
                       >
-                        <span>{showThinking ? '思考中…' : '已处理'}</span>
-                        <span
-                          style={{
-                            display: 'inline-flex',
-                            transform: thinkOpen ? 'rotate(180deg)' : 'none',
-                            transition: 'transform 0.15s',
-                          }}
-                        >
-                          <ChevronDown size={12} />
-                        </span>
-                      </button>
-                    )}
+                        <ChevronDown size={12} />
+                      </span>
+                    </button>
 
-                    {/* AI 正文：无气泡，Markdown 渲染 */}
+                    {/* 连续展示所有 assistant 消息段和工具调用 */}
                     <div className="msg-ai-text">
-                      <MarkdownMessage content={msg.content} streaming={msg.streaming} onLinkClick={onLinkClick} />
-                      {msg.streaming && <span className="cursor-blink">▊</span>}
+                      {group.messages.map((msg, idx) => (
+                        <React.Fragment key={msg.id}>
+                          {/* 工具调用（在文本之前展示） */}
+                          {msg.toolCalls && msg.toolCalls.length > 0 && (
+                            <div className="tool-calls-group">
+                              {msg.toolCalls.map((tc) => (
+                                <ToolCallBlock key={tc.id} toolCall={tc} />
+                              ))}
+                            </div>
+                          )}
+                          {/* 文本内容 */}
+                          {msg.content && (
+                            <MarkdownMessage content={msg.content} streaming={msg.streaming} onLinkClick={onLinkClick} />
+                          )}
+                          {/* 最后一条流式消息的光标 */}
+                          {msg.streaming && idx === group.messages.length - 1 && (
+                            <span className="cursor-blink">▊</span>
+                          )}
+                        </React.Fragment>
+                      ))}
                     </div>
 
-                    {/* 完成后的反馈按钮 */}
-                    {!msg.streaming && msg.content && (
+                    {/* 只在整组完成且是最后一组时显示操作按钮 */}
+                    {!isGroupStreaming && isLastGroup && !isStreaming && (
                       <div className="msg-actions">
                         <button className="msg-action-btn" title="复制">
                           <CopyIcon />
-                        </button>
-                        <button className="msg-action-btn" title="赞">
-                          <ThumbUpIcon />
-                        </button>
-                        <button className="msg-action-btn" title="踩">
-                          <ThumbDownIcon />
-                        </button>
-                        <button className="msg-action-btn" title="分享">
-                          <ShareIcon />
                         </button>
                       </div>
                     )}
@@ -177,28 +245,44 @@ const MainContent: React.FC<MainContentProps> = ({ messages, isStreaming, active
   );
 };
 
-// ===== 简易反馈图标 =====
+// ===== 消息分组逻辑：将连续的 assistant 消息合并为一组 =====
+interface UserGroup {
+  type: 'user';
+  id: string;
+  content: string;
+}
+interface AssistantGroup {
+  type: 'assistant';
+  id: string;
+  messages: ChatMessage[];
+}
+type MessageGroup = UserGroup | AssistantGroup;
+
+function groupMessages(messages: ChatMessage[]): MessageGroup[] {
+  const groups: MessageGroup[] = [];
+
+  for (const msg of messages) {
+    if (msg.role === 'user') {
+      groups.push({ type: 'user', id: msg.id, content: msg.content });
+    } else {
+      // assistant: 合并到上一个 assistant group（如果连续）
+      const last = groups[groups.length - 1];
+      if (last && last.type === 'assistant') {
+        last.messages.push(msg);
+      } else {
+        groups.push({ type: 'assistant', id: msg.id, messages: [msg] });
+      }
+    }
+  }
+
+  return groups;
+}
+
+// ===== 简易图标 =====
 const CopyIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-  </svg>
-);
-const ThumbUpIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path>
-  </svg>
-);
-const ThumbDownIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"></path>
-  </svg>
-);
-const ShareIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
-    <polyline points="16 6 12 2 8 6"></polyline>
-    <line x1="12" y1="2" x2="12" y2="15"></line>
   </svg>
 );
 

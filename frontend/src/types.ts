@@ -14,12 +14,20 @@ export interface ChatItem {
   workingDir?: string;
 }
 
+export interface ChatToolCall {
+  id: string;
+  name: string;
+  /** 流式拼接中的 JSON 参数字符串 */
+  args: string;
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   time: number;
   streaming?: boolean; // 是否正在流式接收中
+  toolCalls?: ChatToolCall[];
 }
 
 export interface ConnectorInfo {
