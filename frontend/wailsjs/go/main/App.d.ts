@@ -39,6 +39,8 @@ export function ListSessionsForProject(arg1:string):Promise<Array<app.ChatItem>>
 
 export function ListSupportedProviders():Promise<Array<apiclient.ProviderTemplate>>;
 
+export function OpenBrowserWindow(arg1:string):Promise<void>;
+
 export function RenameProject(arg1:string,arg2:string):Promise<void>;
 
 export function SaveProvider(arg1:apiclient.ProviderConfig):Promise<void>;

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import InputArea from './InputArea';
 import ConnectorCard from './ConnectorCard';
+import MarkdownMessage from './MarkdownMessage';
 import {
   SlackIcon,
   GithubIcon,
@@ -17,9 +18,10 @@ interface MainContentProps {
   activeProject?: Project | null;
   onSend: (text: string) => void;
   onStop?: () => void;
+  onLinkClick?: (url: string) => void;
 }
 
-const MainContent: React.FC<MainContentProps> = ({ messages, isStreaming, activeProject, onSend, onStop }) => {
+const MainContent: React.FC<MainContentProps> = ({ messages, isStreaming, activeProject, onSend, onStop, onLinkClick }) => {
   const [text, setText] = useState('');
   const [thinkingOpen, setThinkingOpen] = useState<Record<string, boolean>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -126,9 +128,9 @@ const MainContent: React.FC<MainContentProps> = ({ messages, isStreaming, active
                       </button>
                     )}
 
-                    {/* AI 正文：无气泡 */}
+                    {/* AI 正文：无气泡，Markdown 渲染 */}
                     <div className="msg-ai-text">
-                      {msg.content}
+                      <MarkdownMessage content={msg.content} streaming={msg.streaming} onLinkClick={onLinkClick} />
                       {msg.streaming && <span className="cursor-blink">▊</span>}
                     </div>
 

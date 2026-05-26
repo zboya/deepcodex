@@ -205,3 +205,13 @@ func (a *App) ListSessionsForProject(projectID string) []app.ChatItem {
 	}
 	return items
 }
+
+// OpenBrowserWindow 在新的原生 WebView 子窗口中打开 URL。
+// macOS 使用 WKWebView 窗口，其他平台回退到系统浏览器。
+func (a *App) OpenBrowserWindow(url string) {
+	if nativeBrowserSupported {
+		openBrowserWindowNative(url, url, 1200, 800)
+	} else {
+		runtime.BrowserOpenURL(a.ctx, url)
+	}
+}

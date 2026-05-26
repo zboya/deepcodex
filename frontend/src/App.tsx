@@ -3,18 +3,18 @@ import './App.css';
 import Sidebar from './components/Sidebar';
 import MainContent from './components/MainContent';
 import SettingsPage from './components/SettingsPage';
-import { ChatItem, ChatMessage, Project, SendOptions } from './types';
+import { ChatItem, ChatMessage, Project } from './types';
 import {
-  SendMessage,
-  StopMessage,
   ListProjects,
   AddProject,
   DeleteProject,
   ListSessionsForProject,
   GetSessionMessages,
   SelectDirectory,
+  OpenBrowserWindow,
 } from '../wailsjs/go/main/App';
-import { EventsOn } from '../wailsjs/runtime/runtime';
+import { WailsAgent } from './agui/WailsAgent';
+import type { Message as AGUIMessage } from '@ag-ui/core';
 
 function App() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -28,9 +28,6 @@ function App() {
 
   // 当前视图: chat | settings
   const [view, setView] = useState<'chat' | 'settings'>('chat');
-
-  // 用 ref 跟踪流式消息的累积文本
-  const streamingTextRef = useRef('');
 
   // ─── 初始化 ─────────────────────────────────────────────────────────────────
 
@@ -127,140 +124,77 @@ function App() {
     setMessages([]);
   };
 
-  // ─── 流式事件监听 ────────────────────────────────────────────────────────────
+  // ─── AG-UI Agent 单例 ─────────────────────────────────────────────────────
+
+  // WailsAgent 在切换 project / chat 时重新创建（threadId 绑定到 chatId）
+  const agentRef = useRef<WailsAgent | null>(null);
 
   useEffect(() => {
-    const offDelta = EventsOn('chat:delta', (text: string) => {
-      streamingTextRef.current += text;
-      setMessages((prev) => {
-        const last = prev[prev.length - 1];
-        if (last && last.role === 'assistant' && last.streaming) {
-          return [
-            ...prev.slice(0, -1),
-            { ...last, content: streamingTextRef.current },
-          ];
-        }
-        return prev;
-      });
+    const threadId = activeChatId || `default-${Date.now()}`;
+    const agent = new WailsAgent({
+      projectId: activeProjectId || '',
+      threadId,
+      initialMessages: chatMessagesToAGUI(messages),
     });
 
-    const offDone = EventsOn('chat:done', (_fullText: string) => {
-      setMessages((prev) => {
-        const last = prev[prev.length - 1];
-        if (last && last.role === 'assistant' && last.streaming) {
-          return [...prev.slice(0, -1), { ...last, streaming: false }];
-        }
-        return prev;
-      });
-      setIsStreaming(false);
+    // 监听 AG-UI 的标准 messages 变化，把它映射回我们的 ChatMessage[]
+    const unsub = agent.subscribe({
+      onMessagesChanged: ({ messages: ms }) => {
+        setMessages(aguiMessagesToChat(ms as readonly AGUIMessage[]));
+      },
+      onRunFinishedEvent: () => {
+        setIsStreaming(false);
+      },
+      onRunErrorEvent: ({ event }) => {
+        console.error('[agui] RUN_ERROR', event);
+        setIsStreaming(false);
+      },
     });
 
-    const offStopped = EventsOn('chat:stopped', (_partialText: string) => {
-      setMessages((prev) => {
-        const last = prev[prev.length - 1];
-        if (last && last.role === 'assistant' && last.streaming) {
-          return [...prev.slice(0, -1), { ...last, streaming: false }];
-        }
-        return prev;
-      });
-      setIsStreaming(false);
-    });
-
+    agentRef.current = agent;
     return () => {
-      offDelta();
-      offDone();
-      offStopped();
+      unsub.unsubscribe();
+      agent.abortRun();
+      agentRef.current = null;
     };
-  }, []);
+    // 仅在 chat / project 切换时重建，messages 初始化只取一次
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeChatId, activeProjectId]);
 
   // ─── 发消息 ──────────────────────────────────────────────────────────────────
 
   const handleSendMessage = useCallback(
     async (text: string) => {
       if (isStreaming) return;
+      const agent = agentRef.current;
+      if (!agent) return;
 
-      const userMsg: ChatMessage = {
+      // AG-UI 规范：在 runAgent 之前把用户消息推入 agent.messages
+      agent.addMessage({
         id: `user-${Date.now()}`,
         role: 'user',
         content: text,
-        time: Date.now() / 1000,
-      };
-
-      const assistantMsg: ChatMessage = {
-        id: `assistant-${Date.now()}`,
-        role: 'assistant',
-        content: '',
-        time: Date.now() / 1000,
-        streaming: true,
-      };
-
-      setMessages((prev) => [...prev, userMsg, assistantMsg]);
+      });
       setIsStreaming(true);
-      streamingTextRef.current = '';
-
-      // 若已有 activeChatId，携带 resumeSessionID 以继续该会话
-      const opts = {
-        continueSession: false,
-        resumeSessionID: activeChatId || '',
-      };
 
       try {
-        const resp = await SendMessage(
-          activeProjectId || '',
-          activeChatId || 'default',
-          text,
-          opts
-        );
-
-        setMessages((prev) => {
-          const last = prev[prev.length - 1];
-          if (last && last.role === 'assistant' && last.streaming) {
-            return [
-              ...prev.slice(0, -1),
-              {
-                ...last,
-                content: last.content || (resp && (resp as any).content) || '',
-                streaming: false,
-              },
-            ];
-          }
-          return prev;
-        });
-        setIsStreaming(false);
-
+        await agent.runAgent();
         // 刷新会话列表
         if (activeProjectId) {
           handleLoadSessions(activeProjectId);
         }
       } catch (err) {
-        console.error('[SendMessage error]', err);
-        setMessages((prev) => {
-          const last = prev[prev.length - 1];
-          if (last && last.streaming) {
-            return [
-              ...prev.slice(0, -1),
-              { ...last, content: `[错误] ${err}`, streaming: false },
-            ];
-          }
-          return prev;
-        });
+        console.error('[runAgent error]', err);
         setIsStreaming(false);
       }
     },
-    [isStreaming, activeChatId, activeProjectId, handleLoadSessions]
+    [isStreaming, activeProjectId, handleLoadSessions],
   );
 
   const handleStop = useCallback(() => {
-    StopMessage(activeProjectId || '').catch((err) => console.warn('[StopMessage]', err));
-    setMessages((prev) => {
-      const last = prev[prev.length - 1];
-      if (last && last.role === 'assistant' && last.streaming) {
-        return [...prev.slice(0, -1), { ...last, streaming: false }];
-      }
-      return prev;
-    });
+    agentRef.current?.abortRun();
     setIsStreaming(false);
-  }, [activeProjectId]);
+  }, []);
 
   // ─── 当前项目信息 ─────────────────────────────────────────────────────────────
 
@@ -294,6 +228,7 @@ function App() {
             activeProject={activeProject}
             onSend={handleSendMessage}
             onStop={handleStop}
+            onLinkClick={(url) => OpenBrowserWindow(url)}
           />
         </>
       )}
@@ -302,3 +237,31 @@ function App() {
 }
 
 export default App;
+
+// ─── AGUI ↔ ChatMessage 适配 ────────────────────────────────────────────────
+
+function chatMessagesToAGUI(msgs: ChatMessage[]): AGUIMessage[] {
+  return msgs.map((m) => ({
+    id: m.id,
+    role: m.role,
+    content: m.content,
+  })) as AGUIMessage[];
+}
+
+function aguiMessagesToChat(msgs: readonly AGUIMessage[]): ChatMessage[] {
+  const out: ChatMessage[] = [];
+  for (const m of msgs) {
+    if (m.role !== 'user' && m.role !== 'assistant') continue;
+    const content = typeof m.content === 'string' ? m.content : '';
+    out.push({
+      id: m.id,
+      role: m.role,
+      content,
+      time: Date.now() / 1000,
+      // 最后一条 assistant 消息若仍在生成中（无 content 或刚开始），可由
+      // RUN_FINISHED 后的 onMessagesChanged 再次刷新清掉 streaming 标记。
+      streaming: false,
+    });
+  }
+  return out;
+}

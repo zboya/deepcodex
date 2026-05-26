@@ -14,7 +14,14 @@ import (
 	"github.com/zboya/deepcodex/agent/harness"
 	"github.com/zboya/deepcodex/agent/session"
 	"github.com/zboya/deepcodex/agent/worktree"
+	"github.com/zboya/deepcodex/app/agui"
 )
+
+// EmitLegacyEvents controls whether the legacy chat:* events ("chat:delta" /
+// "chat:done" / "chat:stopped") are still emitted alongside the new AG-UI
+// events on channel "agui:event". Kept temporarily to ease frontend migration;
+// flip to false once the frontend fully consumes AG-UI events.
+var EmitLegacyEvents = true
 
 // Chat manages AI conversation sessions for a specific working directory.
 type Chat struct {
@@ -22,7 +29,7 @@ type Chat struct {
 	mu      sync.Mutex // protects concurrent sends
 	harness *harness.Harness
 
-	workDir      string               // the working directory for this chat instance
+	workDir      string                // the working directory for this chat instance
 	sessionStore *session.SessionStore // persists conversation sessions
 
 	cancelSend context.CancelFunc // cancels the current SendMessage context
@@ -167,7 +174,7 @@ func (c *Chat) SendMessage(chatID string, content string, opts SendOptions) Mess
 
 	// Mock 模式：模拟大模型慢慢吐字
 	if MockMode {
-		return c.mockSendMessage(ctx)
+		return c.mockSendMessage(ctx, chatID)
 	}
 
 	if c.harness == nil {
@@ -188,11 +195,18 @@ func (c *Chat) SendMessage(chatID string, content string, opts SendOptions) Mess
 		// Non-fatal: continue with fresh context
 	}
 
+	// 创建 AG-UI emitter，threadID 取 chatID
+	em := agui.New(c.ctx, chatID)
+	em.RunStarted()
+
 	// 使用流式对话，通过 Wails Events 推送增量文本到前端
 	ch, err := c.harness.ChatStream(ctx, content)
 	if err != nil {
 		errMsg := fmt.Sprintf("[错误] %v", err)
-		runtime.EventsEmit(c.ctx, "chat:done", errMsg)
+		em.RunError(errMsg)
+		if EmitLegacyEvents {
+			runtime.EventsEmit(c.ctx, "chat:done", errMsg)
+		}
 		return Message{
 			ID:      fmt.Sprintf("msg-%d", time.Now().UnixNano()),
 			Role:    "assistant",
@@ -206,7 +220,10 @@ func (c *Chat) SendMessage(chatID string, content string, opts SendOptions) Mess
 		// 若 context 已取消，停止读取
 		select {
 		case <-ctx.Done():
-			runtime.EventsEmit(c.ctx, "chat:stopped", fullText)
+			em.RunError("cancelled")
+			if EmitLegacyEvents {
+				runtime.EventsEmit(c.ctx, "chat:stopped", fullText)
+			}
 			return Message{
 				ID:      fmt.Sprintf("msg-%d", time.Now().UnixNano()),
 				Role:    "assistant",
@@ -215,19 +232,33 @@ func (c *Chat) SendMessage(chatID string, content string, opts SendOptions) Mess
 			}
 		default:
 		}
-		// 处理文本增量
+
+		// 累积文本（用于返回值 + 旧事件兼容）
 		if ev.BlockDelta != nil && ev.BlockDelta.Kind == "text_delta" {
 			fullText += ev.BlockDelta.Text
-			runtime.EventsEmit(c.ctx, "chat:delta", ev.BlockDelta.Text)
+			if EmitLegacyEvents {
+				runtime.EventsEmit(c.ctx, "chat:delta", ev.BlockDelta.Text)
+			}
 		}
-		// 处理新的文本块开始（可能携带初始文本）
 		if ev.ContentBlock != nil && ev.ContentBlock.Kind == "text" && ev.ContentBlock.Text != "" {
 			fullText += ev.ContentBlock.Text
-			runtime.EventsEmit(c.ctx, "chat:delta", ev.ContentBlock.Text)
+			if EmitLegacyEvents {
+				runtime.EventsEmit(c.ctx, "chat:delta", ev.ContentBlock.Text)
+			}
 		}
+
+		// 通过 emitter 发送标准 AG-UI 事件（文本/工具调用全部覆盖）
+		em.Translate(ev)
 	}
 
-	runtime.EventsEmit(c.ctx, "chat:done", fullText)
+	usage := c.harness.GetUsage()
+	em.RunFinished(&agui.Usage{
+		InputTokens:  usage.InputTokens,
+		OutputTokens: usage.OutputTokens,
+	})
+	if EmitLegacyEvents {
+		runtime.EventsEmit(c.ctx, "chat:done", fullText)
+	}
 
 	return Message{
 		ID:      fmt.Sprintf("msg-%d", time.Now().UnixNano()),

@@ -74,6 +74,10 @@ export function ListSupportedProviders() {
   return window['go']['main']['App']['ListSupportedProviders']();
 }
 
+export function OpenBrowserWindow(arg1) {
+  return window['go']['main']['App']['OpenBrowserWindow'](arg1);
+}
+
 export function RenameProject(arg1, arg2) {
   return window['go']['main']['App']['RenameProject'](arg1, arg2);
 }
