@@ -12,7 +12,7 @@ import (
 )
 
 // MockMode 全局 mock 开关，为 true 时 SendMessage 不请求大模型，返回模拟流式数据
-var MockMode = true
+var MockMode = false
 
 // mockStep represents one step in the simulated agent interaction.
 // A step is either a text segment or a tool call.

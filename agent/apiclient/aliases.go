@@ -21,6 +21,9 @@ const (
 	ProviderDeepSeek
 	ProviderCodex
 	ProviderNovita
+	// ProviderMock 是用于本地测试 / 离线演示的内置 mock provider,
+	// 不会发出任何真实网络请求, 由 MockEnabled 全局开关控制是否启用.
+	ProviderMock
 )
 
 // modelAliases maps short names to full model identifiers.

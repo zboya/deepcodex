@@ -56,7 +56,7 @@ func (a *App) ServiceStartup(ctx context.Context, _ application.ServiceOptions) 
 	})
 	if err != nil {
 		slog.Error(fmt.Sprintf("[app] failed to initialize default harness: %v", err))
-		return nil
+		return err
 	}
 	a.defaultChat = app.NewChat(ctx, h)
 	slog.Info(fmt.Sprintf("[app] default harness initialized, model=%s", h.Model))

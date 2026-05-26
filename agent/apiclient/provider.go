@@ -33,6 +33,18 @@ type Provider interface {
 func ResolveProvider(model string, apiKeyFlag string) (Provider, string, error) {
 	resolvedModel := ResolveModelAlias(model)
 
+	// Mock 短路: 全局开关打开时, 直接返回内置 MockProvider, 不解析任何凭据,
+	// 也不发起任何真实网络请求. 由 EnableMock / SetMockProvider / 环境变量
+	// DEEPCODEX_MOCK 控制. 详见 mock_provider.go.
+	if IsMockEnabled() {
+		mp := ActiveMockProvider()
+		modelOut := resolvedModel
+		if modelOut == "" {
+			modelOut = mp.cfg.ModelName
+		}
+		return mp, modelOut, nil
+	}
+
 	// 0. 优先尝试用文件配置中的 provider, 仅当用户在 ~/.deepcodex/providers.json
 	//    里显式配置, 且当前进程没有任何主动的环境变量覆盖时才采用,
 	//    避免破坏已有 env-based 集成.
