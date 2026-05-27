@@ -154,6 +154,12 @@ function App() {
     setMessages([]);
   };
 
+  const handleNewSessionForProject = (projectId: string) => {
+    setActiveProjectId(projectId);
+    setActiveChatId(`chat-${Date.now()}`);
+    setMessages([]);
+  };
+
   // ─── AG-UI Agent 单例 ─────────────────────────────────────────────────────
 
   // WailsAgent 在切换 project / chat 时重新创建（threadId 绑定到 chatId）
@@ -264,6 +270,7 @@ function App() {
             onAddProject={handleAddProject}
             onDeleteProject={handleDeleteProject}
             onLoadSessions={handleLoadSessions}
+            onNewSessionForProject={(pid) => { handleNewSessionForProject(pid); setView('chat'); }}
           />
           <PluginsPage />
         </>
@@ -284,6 +291,7 @@ function App() {
             onAddProject={handleAddProject}
             onDeleteProject={handleDeleteProject}
             onLoadSessions={handleLoadSessions}
+            onNewSessionForProject={handleNewSessionForProject}
           />
           <MainContent
             messages={messages}

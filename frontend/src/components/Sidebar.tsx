@@ -71,6 +71,7 @@ interface SidebarProps {
   onAddProject?: () => void;
   onDeleteProject?: (id: string) => void;
   onLoadSessions?: (projectId: string) => void;
+  onNewSessionForProject?: (projectId: string) => void;
 }
 
 // ─── ProjectRow ───────────────────────────────────────────────────────────────
@@ -84,7 +85,44 @@ interface ProjectRowProps {
   onSelectChat: (chatId: string) => void;
   onDelete: () => void;
   onLoadSessions: () => void;
+  onNewSession: () => void;
 }
+
+// ─── 更多菜单图标 ──────────────────────────────────────────────────────────────
+
+const MoreDotsIcon = ({ size = 14 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+    <circle cx="5" cy="12" r="2" />
+    <circle cx="12" cy="12" r="2" />
+    <circle cx="19" cy="12" r="2" />
+  </svg>
+);
+
+const PinIcon = ({ size = 14 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 17v5M9 3h6l1 7h-8l1-7zM8 10l-1 4h10l-1-4" />
+  </svg>
+);
+
+const FolderOpenIcon = ({ size = 14 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+  </svg>
+);
+
+const RemoveIcon = ({ size = 14 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="18" y1="6" x2="6" y2="18" />
+    <line x1="6" y1="6" x2="18" y2="18" />
+  </svg>
+);
+
+const NewChatIcon = ({ size = 14 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 20h9" />
+    <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+  </svg>
+);
 
 const ProjectRow: React.FC<ProjectRowProps> = ({
   project,
@@ -95,10 +133,13 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
   onSelectChat,
   onDelete,
   onLoadSessions,
+  onNewSession,
 }) => {
   const [open, setOpen] = useState(false);
   const [hovering, setHovering] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const menuRef = React.useRef<HTMLDivElement>(null);
 
   // 当本项目被选中、或当前 activeChatId 属于本项目，自动展开会话列表
   const containsActive = !!activeChatId && sessions.some((s) => s.id === activeChatId);
@@ -112,6 +153,19 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActive]);
 
+  // 点击外部关闭菜单
+  React.useEffect(() => {
+    if (!menuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+        setConfirmDelete(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [menuOpen]);
+
   const handleToggle = () => {
     const next = !effectiveOpen;
     setOpen(next);
@@ -121,13 +175,23 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
     onSelect();
   };
 
+  const handleOpenInFinder = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setMenuOpen(false);
+    // 调用系统打开目录（Wails 环境下可通过 runtime 调用）
+    try {
+      (window as any).runtime?.BrowserOpenURL?.(`file://${project.path}`);
+    } catch { /* 静默忽略 */ }
+  };
+
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!confirmDelete) {
       setConfirmDelete(true);
-      setTimeout(() => setConfirmDelete(false), 2500);
       return;
     }
+    setMenuOpen(false);
+    setConfirmDelete(false);
     onDelete();
   };
 
@@ -137,7 +201,7 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
       <div
         className={`proj-row ${isActive ? 'active' : ''}`}
         onMouseEnter={() => setHovering(true)}
-        onMouseLeave={() => { setHovering(false); setConfirmDelete(false); }}
+        onMouseLeave={() => { if (!menuOpen) setHovering(false); }}
         onClick={handleToggle}
       >
         <ChevronRightIcon size={11} open={effectiveOpen} />
@@ -147,15 +211,48 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
           {project.path.replace(/^.*[\\/]([^\\/]+)[\\/]?$/, '$1')}
         </span>
 
-        {/* 删除按钮 */}
-        {hovering && (
-          <button
-            className={`proj-delete-btn ${confirmDelete ? 'confirm' : ''}`}
-            title={confirmDelete ? '再次点击确认删除' : '删除项目'}
-            onClick={handleDelete}
-          >
-            {confirmDelete ? '确认?' : <TrashIcon size={12} />}
-          </button>
+        {/* 操作按钮区 */}
+        {(hovering || menuOpen) && (
+          <div className="proj-actions">
+            {/* 更多菜单按钮 */}
+            <div className="proj-menu-wrapper" ref={menuRef}>
+              <button
+                className={`proj-action-btn ${menuOpen ? 'active' : ''}`}
+                title="更多操作"
+                onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); setConfirmDelete(false); }}
+              >
+                <MoreDotsIcon size={14} />
+              </button>
+
+              {/* 下拉菜单 */}
+              {menuOpen && (
+                <div className="proj-dropdown-menu">
+                  <button className="proj-menu-item" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); /* 置顶暂为占位 */ }}>
+                    <PinIcon size={13} />
+                    <span>置顶项目</span>
+                  </button>
+                  <button className="proj-menu-item" onClick={handleOpenInFinder}>
+                    <FolderOpenIcon size={13} />
+                    <span>在访达中打开</span>
+                  </button>
+                  <div className="proj-menu-divider" />
+                  <button className={`proj-menu-item danger ${confirmDelete ? 'confirm' : ''}`} onClick={handleDelete}>
+                    <RemoveIcon size={13} />
+                    <span>{confirmDelete ? '确认移除?' : '移除项目'}</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* 新增会话按钮 */}
+            <button
+              className="proj-action-btn"
+              title="基于此项目新建会话"
+              onClick={(e) => { e.stopPropagation(); onNewSession(); }}
+            >
+              <NewChatIcon size={14} />
+            </button>
+          </div>
         )}
       </div>
 
@@ -205,6 +302,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onAddProject,
   onDeleteProject,
   onLoadSessions,
+  onNewSessionForProject,
 }) => {
   return (
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
@@ -255,6 +353,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 onSelectChat={(chatId) => onSelectChat(p.id, chatId)}
                 onDelete={() => onDeleteProject?.(p.id)}
                 onLoadSessions={() => onLoadSessions?.(p.id)}
+                onNewSession={() => onNewSessionForProject?.(p.id)}
               />
             ))
           )}

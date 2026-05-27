@@ -1492,29 +1492,95 @@ textarea {
   flex-shrink: 0;
 }
 
-.proj-delete-btn {
+/* ===== 项目行操作按钮区 ===== */
+.proj-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
   flex-shrink: 0;
-  height: 20px;
-  min-width: 20px;
+}
+
+.proj-action-btn {
+  flex-shrink: 0;
+  height: 22px;
+  width: 22px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border-radius: 4px;
-  color: #6a6a6a;
-  font-size: 11px;
-  padding: 0 4px;
+  color: #8a8a8a;
   transition: background 0.1s, color 0.1s;
 }
 
-.proj-delete-btn:hover {
-  background: rgba(255, 70, 70, 0.15);
-  color: #ff6b6b;
+.proj-action-btn:hover,
+.proj-action-btn.active {
+  background: rgba(255, 255, 255, 0.1);
+  color: #e0e0e0;
 }
 
-.proj-delete-btn.confirm {
-  background: rgba(255, 70, 70, 0.2);
+/* ===== 更多菜单下拉 ===== */
+.proj-menu-wrapper {
+  position: relative;
+}
+
+.proj-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  min-width: 160px;
+  background: #2a2a2a;
+  border: 1px solid #3a3a3a;
+  border-radius: 8px;
+  padding: 4px 0;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  z-index: 100;
+  animation: menuFadeIn 0.12s ease;
+}
+
+@keyframes menuFadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.proj-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 12px;
+  font-size: 12px;
+  color: #d0d0d0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  transition: background 0.1s;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.proj-menu-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.proj-menu-item.danger {
+  color: #e06060;
+}
+
+.proj-menu-item.danger:hover {
+  background: rgba(255, 70, 70, 0.12);
+}
+
+.proj-menu-item.danger.confirm {
   color: #ff4444;
   font-weight: 600;
+}
+
+.proj-menu-divider {
+  height: 1px;
+  background: #3a3a3a;
+  margin: 4px 8px;
 }
 
 /* ===== 会话列表（项目展开） ===== */

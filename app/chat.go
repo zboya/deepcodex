@@ -173,11 +173,6 @@ func (c *Chat) SendMessage(chatID string, content string, imagePaths []string, o
 		cancel()
 	}()
 
-	// Mock 模式：模拟大模型慢慢吐字
-	if MockMode {
-		return c.mockSendMessage(ctx, chatID)
-	}
-
 	if c.harness == nil {
 		return Message{
 			ID:      fmt.Sprintf("msg-%d", time.Now().UnixNano()),
