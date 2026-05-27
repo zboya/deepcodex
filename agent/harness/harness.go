@@ -97,6 +97,9 @@ type Harness struct {
 	ToolImpl *toolimpl.Registry
 	Model    string
 
+	// skills holds all loaded skills for runtime listing/activation.
+	skills []skills.Skill
+
 	// internal cleanup functions
 	cleanups []func()
 }
@@ -112,9 +115,7 @@ func New(opts Options) (*Harness, error) {
 
 	// Change to the specified working directory if provided.
 	if opts.WorkDir != "" {
-		if err := os.Chdir(opts.WorkDir); err != nil {
-			return nil, fmt.Errorf("changing working directory to %s: %w", opts.WorkDir, err)
-		}
+		opts.WorkDir = getDefaultWorkDir()
 	}
 
 	if opts.PluginsDir == "" {
@@ -180,15 +181,16 @@ func New(opts Options) (*Harness, error) {
 
 	// 7. Skills
 	skillLoader := skills.NewSkillLoader(opts.SkillsDir)
-	_, skillErrs := skillLoader.LoadAll()
+	loadedSkills, skillErrs := skillLoader.LoadAll()
 	for _, e := range skillErrs {
-			slog.Info(fmt.Sprintf("[harness/skills] %v", e))
+		slog.Info(fmt.Sprintf("[harness/skills] %v", e))
 	}
+	h.skills = loadedSkills
 
 	// 8. Build system prompt
 	systemPrompt := opts.SystemPrompt
 	if systemPrompt == "" {
-		systemPrompt = repl.BuildSystemPrompt(executor.ListTools())
+		systemPrompt = repl.BuildSystemPrompt(opts.WorkDir, executor.ListTools())
 	}
 
 	if opts.SkillName != "" {
@@ -223,7 +225,7 @@ func New(opts Options) (*Harness, error) {
 	pm := plugins.NewPluginManager(opts.PluginsDir)
 	loadedPlugins, pluginErrs := pm.LoadAll()
 	for _, e := range pluginErrs {
-			slog.Info(fmt.Sprintf("[harness/plugins] %v", e))
+		slog.Info(fmt.Sprintf("[harness/plugins] %v", e))
 	}
 	hookRunner := plugins.NewPluginHookRunner(loadedPlugins)
 
@@ -231,7 +233,7 @@ func New(opts Options) (*Harness, error) {
 	if _, statErr := os.Stat(opts.HooksConfigPath); statErr == nil {
 		shellRunner, shellErr := hooks.NewShellHookRunner(opts.HooksConfigPath, hookRunner)
 		if shellErr != nil {
-		slog.Error(fmt.Sprintf("[harness/hooks] failed to load shell hooks: %v", shellErr))
+			slog.Error(fmt.Sprintf("[harness/hooks] failed to load shell hooks: %v", shellErr))
 		} else {
 			hooksRunner = shellRunner
 		}
@@ -256,24 +258,41 @@ func New(opts Options) (*Harness, error) {
 	return h, nil
 }
 
+// Run sends a pre-built message with streaming.
+func (h *Harness) Run(ctx context.Context, msg apitypes.InputMessage) (<-chan apitypes.StreamEvent, error) {
+	return h.Runtime.StreamWithMessage(ctx, msg)
+}
+
+// ListSkills returns all loaded skills.
+func (h *Harness) ListSkills() []skills.Skill {
+	return h.skills
+}
+
+// ActivateSkill activates a skill by name, injecting its system prompt into the conversation.
+// Returns an error if the skill is not found or if sending the activation message fails.
+func (h *Harness) ActivateSkill(ctx context.Context, name string) error {
+	var found *skills.Skill
+	for i := range h.skills {
+		if h.skills[i].Name == name {
+			found = &h.skills[i]
+			break
+		}
+	}
+	if found == nil {
+		return fmt.Errorf("unknown skill: %s", name)
+	}
+
+	activationMsg := fmt.Sprintf("The following skill has been activated: %s. Apply these guidelines:\n\n%s", found.Name, found.SystemPrompt)
+	_, err := h.Runtime.SendUserMessage(ctx, activationMsg)
+	if err != nil {
+		return fmt.Errorf("activating skill %s: %w", name, err)
+	}
+	return nil
+}
+
 // Chat sends a message and returns the full response (non-streaming).
 func (h *Harness) Chat(ctx context.Context, msg string) (*apitypes.MessageResponse, error) {
 	return h.Runtime.SendUserMessage(ctx, msg)
-}
-
-// ChatStream sends a message and returns a channel of streaming events.
-func (h *Harness) ChatStream(ctx context.Context, msg string) (<-chan apitypes.StreamEvent, error) {
-	return h.Runtime.StreamUserMessage(ctx, msg)
-}
-
-// ChatWithMessage sends a pre-built message (for multimodal input).
-func (h *Harness) ChatWithMessage(ctx context.Context, msg apitypes.InputMessage) (*apitypes.MessageResponse, error) {
-	return h.Runtime.SendWithMessage(ctx, msg)
-}
-
-// ChatStreamWithMessage sends a pre-built message with streaming.
-func (h *Harness) ChatStreamWithMessage(ctx context.Context, msg apitypes.InputMessage) (<-chan apitypes.StreamEvent, error) {
-	return h.Runtime.StreamWithMessage(ctx, msg)
 }
 
 // GetSession returns the current conversation session.
@@ -322,7 +341,7 @@ func wireAdvancedTools(toolImpl *toolimpl.Registry, hashlineEnabled bool, mcpCon
 	if _, statErr := os.Stat(mcpConfigPath); statErr == nil {
 		mcpMgr, err := mcpclient.NewManager(mcpConfigPath)
 		if err != nil {
-		slog.Error(fmt.Sprintf("[harness/mcpclient] failed to create manager: %v", err))
+			slog.Error(fmt.Sprintf("[harness/mcpclient] failed to create manager: %v", err))
 			return tmuxMgr.KillAll
 		}
 

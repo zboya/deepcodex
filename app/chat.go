@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/zboya/deepcodex/agent/agent"
 	"github.com/zboya/deepcodex/agent/apitypes"
 	"github.com/zboya/deepcodex/agent/harness"
@@ -16,12 +15,6 @@ import (
 	"github.com/zboya/deepcodex/agent/worktree"
 	"github.com/zboya/deepcodex/app/agui"
 )
-
-// EmitLegacyEvents controls whether the legacy chat:* events ("chat:delta" /
-// "chat:done" / "chat:stopped") are still emitted alongside the new AG-UI
-// events on channel "agui:event". Kept temporarily to ease frontend migration;
-// flip to false once the frontend fully consumes AG-UI events.
-var EmitLegacyEvents = true
 
 // Chat manages AI conversation sessions for a specific working directory.
 type Chat struct {
@@ -202,31 +195,21 @@ func (c *Chat) SendMessage(chatID string, content string, imagePaths []string, o
 		ch  <-chan apitypes.StreamEvent
 		err error
 	)
-	if len(imagePaths) > 0 {
-		msg, buildErr := buildImageMessage(content, imagePaths)
-		if buildErr != nil {
-			errMsg := fmt.Sprintf("[错误] 读取图片失败: %v", buildErr)
-			em.RunError(errMsg)
-			if EmitLegacyEvents {
-				application.Get().Event.Emit("chat:done", errMsg)
-			}
-			return Message{
-				ID:      fmt.Sprintf("msg-%d", time.Now().UnixNano()),
-				Role:    "assistant",
-				Content: errMsg,
-				Time:    time.Now().Unix(),
-			}
+	msg, buildErr := buildImageMessage(content, imagePaths)
+	if buildErr != nil {
+		errMsg := fmt.Sprintf("[错误] 读取图片失败: %v", buildErr)
+		em.RunError(errMsg)
+		return Message{
+			ID:      fmt.Sprintf("msg-%d", time.Now().UnixNano()),
+			Role:    "assistant",
+			Content: errMsg,
+			Time:    time.Now().Unix(),
 		}
-		ch, err = c.harness.ChatStreamWithMessage(ctx, msg)
-	} else {
-		ch, err = c.harness.ChatStream(ctx, content)
 	}
+	ch, err = c.harness.Run(ctx, msg)
 	if err != nil {
 		errMsg := fmt.Sprintf("[错误] %v", err)
 		em.RunError(errMsg)
-		if EmitLegacyEvents {
-			application.Get().Event.Emit("chat:done", errMsg)
-		}
 		return Message{
 			ID:      fmt.Sprintf("msg-%d", time.Now().UnixNano()),
 			Role:    "assistant",
@@ -241,9 +224,6 @@ func (c *Chat) SendMessage(chatID string, content string, imagePaths []string, o
 		select {
 		case <-ctx.Done():
 			em.RunError("cancelled")
-			if EmitLegacyEvents {
-				application.Get().Event.Emit("chat:stopped", fullText)
-			}
 			return Message{
 				ID:      fmt.Sprintf("msg-%d", time.Now().UnixNano()),
 				Role:    "assistant",
@@ -256,15 +236,9 @@ func (c *Chat) SendMessage(chatID string, content string, imagePaths []string, o
 		// 累积文本（用于返回值 + 旧事件兼容）
 		if ev.BlockDelta != nil && ev.BlockDelta.Kind == "text_delta" {
 			fullText += ev.BlockDelta.Text
-			if EmitLegacyEvents {
-				application.Get().Event.Emit("chat:delta", ev.BlockDelta.Text)
-			}
 		}
 		if ev.ContentBlock != nil && ev.ContentBlock.Kind == "text" && ev.ContentBlock.Text != "" {
 			fullText += ev.ContentBlock.Text
-			if EmitLegacyEvents {
-				application.Get().Event.Emit("chat:delta", ev.ContentBlock.Text)
-			}
 		}
 
 		// 通过 emitter 发送标准 AG-UI 事件（文本/工具调用全部覆盖）
@@ -276,9 +250,6 @@ func (c *Chat) SendMessage(chatID string, content string, imagePaths []string, o
 		InputTokens:  usage.InputTokens,
 		OutputTokens: usage.OutputTokens,
 	})
-	if EmitLegacyEvents {
-		application.Get().Event.Emit("chat:done", fullText)
-	}
 
 	// 持久化本轮对话到 sessionStore，保证侧边栏"项目 → 会话"列表能看到
 	c.persistTurn(chatID, content, fullText, imagePaths, usage.InputTokens, usage.OutputTokens)
@@ -299,45 +270,6 @@ func (c *Chat) StopMessage() {
 		slog.Info("[app] StopMessage called, cancelling current send")
 		c.cancelSend()
 		c.cancelSend = nil
-	}
-}
-
-// SendMessageSync 非流式发送消息（备用接口）
-func (c *Chat) SendMessageSync(chatID string, content string) Message {
-	if c.harness == nil {
-		return Message{
-			ID:      fmt.Sprintf("msg-%d", time.Now().UnixNano()),
-			Role:    "assistant",
-			Content: "[错误] AI 引擎未初始化",
-			Time:    time.Now().Unix(),
-		}
-	}
-
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	resp, err := c.harness.Chat(context.Background(), content)
-	if err != nil {
-		return Message{
-			ID:      fmt.Sprintf("msg-%d", time.Now().UnixNano()),
-			Role:    "assistant",
-			Content: fmt.Sprintf("[错误] %v", err),
-			Time:    time.Now().Unix(),
-		}
-	}
-
-	var text string
-	for _, block := range resp.Content {
-		if block.Kind == "text" {
-			text += block.Text
-		}
-	}
-
-	return Message{
-		ID:      fmt.Sprintf("msg-%d", time.Now().UnixNano()),
-		Role:    "assistant",
-		Content: text,
-		Time:    time.Now().Unix(),
 	}
 }
 

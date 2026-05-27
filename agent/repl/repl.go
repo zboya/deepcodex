@@ -1052,8 +1052,7 @@ var SkipProjectConfig bool
 
 // BuildSystemPrompt constructs the system prompt for the agent.
 // Modeled after Claude Code's agentic behavior — proactive, autonomous, thorough.
-func BuildSystemPrompt(tools []apitypes.ToolDef) string {
-	cwd, _ := os.Getwd()
+func BuildSystemPrompt(cwd string, tools []apitypes.ToolDef) string {
 	osName := os.Getenv("OSTYPE")
 	if osName == "" {
 		osName = "unix"

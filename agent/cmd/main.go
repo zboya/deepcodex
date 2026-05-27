@@ -623,7 +623,8 @@ func main() {
 			}
 
 			if printPrompt {
-				fmt.Println(repl.BuildSystemPrompt(h.Executor.ListTools()))
+				cwd, _ := os.Getwd()
+				fmt.Println(repl.BuildSystemPrompt(cwd, h.Executor.ListTools()))
 				return nil
 			}
 
@@ -919,8 +920,9 @@ func main() {
 			defer h.Close()
 
 			if printPrompt {
+				cwd, _ := os.Getwd()
 				// Print system prompt by building it the same way harness does
-				fmt.Println(repl.BuildSystemPrompt(h.Executor.ListTools()))
+				fmt.Println(repl.BuildSystemPrompt(cwd, h.Executor.ListTools()))
 				return nil
 			}
 
