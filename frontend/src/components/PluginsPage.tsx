@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Settings, ChevronDown } from './Icons';
+import { ListMCPServers, ListSkills } from '../../bindings/github.com/zboya/deepcodex/app';
 
 // ─── 图标 ────────────────────────────────────────────────────────────────────
 
@@ -51,99 +52,9 @@ interface PluginItem {
   description: string;
   icon: React.ReactNode;
   installed: boolean;
+  toolCount?: number;
+  connected?: boolean;
 }
-
-// ─── Mock 数据 ────────────────────────────────────────────────────────────────
-
-const FEATURED_PLUGINS: PluginItem[] = [
-  {
-    id: 'computer-use',
-    name: 'Computer Use',
-    description: 'Control Mac apps from Codex',
-    icon: <span style={{ fontSize: 20 }}>🖥</span>,
-    installed: true,
-  },
-  {
-    id: 'chrome',
-    name: 'Chrome',
-    description: 'Control Chrome with Codex',
-    icon: <span style={{ fontSize: 20 }}>🌐</span>,
-    installed: false,
-  },
-  {
-    id: 'spreadsheets',
-    name: 'Spreadsheets',
-    description: 'Create and edit spreadsheet files',
-    icon: <span style={{ fontSize: 20 }}>📊</span>,
-    installed: true,
-  },
-  {
-    id: 'presentations',
-    name: 'Presentations',
-    description: 'Create and edit presentations',
-    icon: <span style={{ fontSize: 20 }}>📽</span>,
-    installed: true,
-  },
-  {
-    id: 'github',
-    name: 'GitHub',
-    description: 'Triage PRs, issues, CI, and publish flows',
-    icon: <span style={{ fontSize: 20 }}>🐙</span>,
-    installed: false,
-  },
-  {
-    id: 'slack',
-    name: 'Slack',
-    description: 'Read and manage Slack',
-    icon: <span style={{ fontSize: 20 }}>💬</span>,
-    installed: false,
-  },
-  {
-    id: 'notion',
-    name: 'Notion',
-    description: 'Notion workflows for notes, research',
-    icon: <span style={{ fontSize: 20 }}>📝</span>,
-    installed: false,
-  },
-  {
-    id: 'linear',
-    name: 'Linear',
-    description: 'Find and reference issues and projects',
-    icon: <span style={{ fontSize: 20 }}>📐</span>,
-    installed: false,
-  },
-];
-
-const FEATURED_SKILLS: PluginItem[] = [
-  {
-    id: 'code-review',
-    name: 'Code Review',
-    description: 'Automated code review and suggestions',
-    icon: <span style={{ fontSize: 20 }}>🔍</span>,
-    installed: true,
-  },
-  {
-    id: 'test-gen',
-    name: 'Test Generator',
-    description: 'Generate unit tests for your code',
-    icon: <span style={{ fontSize: 20 }}>🧪</span>,
-    installed: false,
-  },
-  {
-    id: 'doc-gen',
-    name: 'Doc Writer',
-    description: 'Auto-generate documentation',
-    icon: <span style={{ fontSize: 20 }}>📄</span>,
-    installed: false,
-  },
-  {
-    id: 'refactor',
-    name: 'Refactor Assistant',
-    description: 'Smart code refactoring suggestions',
-    icon: <span style={{ fontSize: 20 }}>⚙️</span>,
-    installed: true,
-  },
-];
 
 // ─── Banner 示例文字 ───────────────────────────────────────────────────────────
 
@@ -157,21 +68,22 @@ const BANNER_EXAMPLES = [
 
 const PluginCard: React.FC<{
   item: PluginItem;
-  onToggle: (id: string) => void;
-}> = ({ item, onToggle }) => (
+  tab: Tab;
+}> = ({ item, tab }) => (
   <div className="plugin-card">
     <div className="plugin-card-icon">{item.icon}</div>
     <div className="plugin-card-info">
       <div className="plugin-card-name">{item.name}</div>
       <div className="plugin-card-desc">{item.description}</div>
+      {tab === 'plugins' && item.toolCount !== undefined && (
+        <div className="plugin-card-meta">
+          {item.toolCount} tools · {item.connected ? '已连接' : '未连接'}
+        </div>
+      )}
     </div>
-    <button
-      className={`plugin-card-toggle ${item.installed ? 'installed' : ''}`}
-      onClick={() => onToggle(item.id)}
-      title={item.installed ? '已安装' : '安装'}
-    >
-      {item.installed ? <CheckIcon size={13} /> : <PlusIcon size={13} />}
-    </button>
+    <div className={`plugin-card-status ${item.connected || item.installed ? 'active' : ''}`}>
+      {item.connected || item.installed ? <CheckIcon size={13} /> : <PlusIcon size={13} />}
+    </div>
   </div>
 );
 
@@ -213,8 +125,49 @@ const PluginsPage: React.FC = () => {
   const [search, setSearch] = useState('');
   const [showCreateMenu, setShowCreateMenu] = useState(false);
   const [bannerIdx] = useState(0);
-  const [plugins, setPlugins] = useState(FEATURED_PLUGINS);
-  const [skills, setSkills] = useState(FEATURED_SKILLS);
+  const [plugins, setPlugins] = useState<PluginItem[]>([]);
+  const [skills, setSkills] = useState<PluginItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // 从后端加载 MCP 和 Skills 列表
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        const [mcpServers, skillList] = await Promise.all([
+          ListMCPServers(),
+          ListSkills(),
+        ]);
+
+        // 转换 MCP servers → PluginItem
+        const mcpItems: PluginItem[] = (mcpServers || []).map((s: any) => ({
+          id: s.id || s.name,
+          name: s.name,
+          description: s.description || s.command || '',
+          icon: <span style={{ fontSize: 20 }}>🔌</span>,
+          installed: s.connected,
+          toolCount: s.toolCount,
+          connected: s.connected,
+        }));
+        setPlugins(mcpItems);
+
+        // 转换 Skills → PluginItem
+        const skillItems: PluginItem[] = (skillList || []).map((s: any) => ({
+          id: s.id || s.name,
+          name: s.name,
+          description: s.description || '',
+          icon: <span style={{ fontSize: 20 }}>⚡</span>,
+          installed: true, // 所有加载的 skills 都可用
+        }));
+        setSkills(skillItems);
+      } catch (err) {
+        console.error('[PluginsPage] failed to load data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, []);
 
   const items = tab === 'plugins' ? plugins : skills;
 
@@ -225,20 +178,6 @@ const PluginsPage: React.FC = () => {
           p.description.toLowerCase().includes(search.toLowerCase()),
       )
     : items;
-
-  const handleTogglePlugin = (id: string) => {
-    setPlugins((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, installed: !p.installed } : p)),
-    );
-  };
-
-  const handleToggleSkill = (id: string) => {
-    setSkills((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, installed: !p.installed } : p)),
-    );
-  };
-
-  const handleToggle = tab === 'plugins' ? handleTogglePlugin : handleToggleSkill;
 
   const banner = BANNER_EXAMPLES[bannerIdx % BANNER_EXAMPLES.length];
 
@@ -326,15 +265,26 @@ const PluginsPage: React.FC = () => {
 
         {/* 卡片网格 */}
         <div className="plugins-section">
-          <div className="plugins-section-title">Featured</div>
-          <div className="plugins-grid">
-            {filtered.map((item) => (
-              <PluginCard key={item.id} item={item} onToggle={handleToggle} />
-            ))}
-            {filtered.length === 0 && (
-              <div className="plugins-empty">未找到匹配的{tab === 'plugins' ? '插件' : '技能'}</div>
-            )}
+          <div className="plugins-section-title">
+            {tab === 'plugins' ? 'MCP Servers' : 'Skills'}
+            <span className="plugins-section-count">{filtered.length}</span>
           </div>
+          {loading ? (
+            <div className="plugins-loading">加载中...</div>
+          ) : (
+            <div className="plugins-grid">
+              {filtered.map((item) => (
+                <PluginCard key={item.id} item={item} tab={tab} />
+              ))}
+              {filtered.length === 0 && (
+                <div className="plugins-empty">
+                  {tab === 'plugins'
+                    ? '未找到 MCP 服务器，请在 .deepcodex/mcp.json 中配置'
+                    : '未找到匹配的技能'}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

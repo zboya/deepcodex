@@ -23,7 +23,8 @@ type App struct {
 	*app.Projects
 
 	// 全局共享的默认 Chat（无项目时使用）
-	defaultChat *app.Chat
+	defaultChat    *app.Chat
+	defaultHarness *harness.Harness
 
 	// 每个项目对应独立的 Chat 实例（key = projectID）
 	projectChats map[string]*app.Chat
@@ -58,6 +59,7 @@ func (a *App) ServiceStartup(ctx context.Context, _ application.ServiceOptions) 
 		slog.Error(fmt.Sprintf("[app] failed to initialize default harness: %v", err))
 		return err
 	}
+	a.defaultHarness = h
 	a.defaultChat = app.NewChat(ctx, h)
 	slog.Info(fmt.Sprintf("[app] default harness initialized, model=%s", h.Model))
 	return nil
@@ -196,6 +198,26 @@ func (a *App) GetUsage(projectID string) map[string]interface{} {
 // Close 关闭（前端调用）
 func (a *App) Close() {
 	_ = a.ServiceShutdown()
+}
+
+// ─── MCP & Skills 接口 ──────────────────────────────────────────────────────
+
+// ListMCPServers 返回默认 harness 中已配置的 MCP 服务器列表。
+func (a *App) ListMCPServers() []app.MCPServerItem {
+	if a.defaultHarness == nil {
+		return []app.MCPServerItem{}
+	}
+	mcp := app.NewMCP(a.defaultHarness)
+	return mcp.List()
+}
+
+// ListSkills 返回所有可用的 Skills 列表（内置 + 用户自定义）。
+func (a *App) ListSkills() []app.SkillItem {
+	if a.defaultHarness == nil {
+		return []app.SkillItem{}
+	}
+	sk := app.NewSkills(a.defaultHarness)
+	return sk.List()
 }
 
 // ─── session store 直接查询（不依赖 harness）────────────────────────────────

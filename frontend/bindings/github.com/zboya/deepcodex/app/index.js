@@ -4,7 +4,9 @@
 
 export {
     ChatItem,
+    MCPServerItem,
     Message,
     ProjectEntry,
-    SendOptions
+    SendOptions,
+    SkillItem
 } from "./models.js";

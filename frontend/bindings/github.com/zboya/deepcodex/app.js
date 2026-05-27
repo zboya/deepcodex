@@ -159,12 +159,22 @@ export function ListChats(projectID) {
 }
 
 /**
+ * ListMCPServers 返回默认 harness 中已配置的 MCP 服务器列表。
+ * @returns {$CancellablePromise<app$0.MCPServerItem[]>}
+ */
+export function ListMCPServers() {
+    return $Call.ByID(3510320173).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType9($result);
+    }));
+}
+
+/**
  * ListProjects 列出所有已添加的项目
  * @returns {$CancellablePromise<app$0.ProjectEntry[]>}
  */
 export function ListProjects() {
     return $Call.ByID(2721360259).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType8($result);
+        return $$createType10($result);
     }));
 }
 
@@ -178,7 +188,7 @@ export function ListProjects() {
  */
 export function ListProviderModels(providerName) {
     return $Call.ByID(3026634666, providerName).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType10($result);
+        return $$createType12($result);
     }));
 }
 
@@ -188,7 +198,7 @@ export function ListProviderModels(providerName) {
  */
 export function ListProviders() {
     return $Call.ByID(4005662969).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType12($result);
+        return $$createType14($result);
     }));
 }
 
@@ -204,6 +214,16 @@ export function ListSessionsForProject(projectID) {
 }
 
 /**
+ * ListSkills 返回所有可用的 Skills 列表（内置 + 用户自定义）。
+ * @returns {$CancellablePromise<app$0.SkillItem[]>}
+ */
+export function ListSkills() {
+    return $Call.ByID(1140726611).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType16($result);
+    }));
+}
+
+/**
  * ListSupportedProviders 返回所有内置支持的 LLM 提供商模板.
  * 
  * 该接口与 ListProviders 互补:
@@ -215,7 +235,7 @@ export function ListSessionsForProject(projectID) {
  */
 export function ListSupportedProviders() {
     return $Call.ByID(3600971573).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType14($result);
+        return $$createType18($result);
     }));
 }
 
@@ -266,7 +286,7 @@ export function SelectDirectory() {
  */
 export function SelectImageFiles() {
     return $Call.ByID(398204413).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType15($result);
+        return $$createType19($result);
     }));
 }
 
@@ -313,11 +333,15 @@ const $$createType4 = app$0.Message.createFrom;
 const $$createType5 = $Create.Array($$createType4);
 const $$createType6 = $Create.Map($Create.Any, $Create.Any);
 const $$createType7 = $Create.Array($$createType1);
-const $$createType8 = $Create.Array($$createType0);
-const $$createType9 = apiclient$0.ModelInfo.createFrom;
-const $$createType10 = $Create.Array($$createType9);
-const $$createType11 = apiclient$0.ProviderConfig.createFrom;
+const $$createType8 = app$0.MCPServerItem.createFrom;
+const $$createType9 = $Create.Array($$createType8);
+const $$createType10 = $Create.Array($$createType0);
+const $$createType11 = apiclient$0.ModelInfo.createFrom;
 const $$createType12 = $Create.Array($$createType11);
-const $$createType13 = apiclient$0.ProviderTemplate.createFrom;
+const $$createType13 = apiclient$0.ProviderConfig.createFrom;
 const $$createType14 = $Create.Array($$createType13);
-const $$createType15 = $Create.Array($Create.Any);
+const $$createType15 = app$0.SkillItem.createFrom;
+const $$createType16 = $Create.Array($$createType15);
+const $$createType17 = apiclient$0.ProviderTemplate.createFrom;
+const $$createType18 = $Create.Array($$createType17);
+const $$createType19 = $Create.Array($Create.Any);

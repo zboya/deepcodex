@@ -59,6 +59,83 @@ export class ChatItem {
 }
 
 /**
+ * MCPServerItem represents an MCP server entry for frontend display.
+ */
+export class MCPServerItem {
+    /**
+     * Creates a new MCPServerItem instance.
+     * @param {Partial<MCPServerItem>} [$$source = {}] - The source object to create the MCPServerItem.
+     */
+    constructor($$source = {}) {
+        if (!("id" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["id"] = "";
+        }
+        if (!("name" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["name"] = "";
+        }
+        if (!("description" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["description"] = "";
+        }
+        if (!("command" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["command"] = "";
+        }
+        if (!("toolCount" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["toolCount"] = 0;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string[] | undefined}
+             */
+            this["toolNames"] = undefined;
+        }
+        if (!("connected" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["connected"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new MCPServerItem instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {MCPServerItem}
+     */
+    static createFrom($$source = {}) {
+        const $$createField5_0 = $$createType0;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("toolNames" in $$parsedSource) {
+            $$parsedSource["toolNames"] = $$createField5_0($$parsedSource["toolNames"]);
+        }
+        return new MCPServerItem(/** @type {Partial<MCPServerItem>} */($$parsedSource));
+    }
+}
+
+/**
  * Message 单条消息
  */
 export class Message {
@@ -205,3 +282,62 @@ export class SendOptions {
         return new SendOptions(/** @type {Partial<SendOptions>} */($$parsedSource));
     }
 }
+
+/**
+ * SkillItem represents a skill entry for frontend display.
+ */
+export class SkillItem {
+    /**
+     * Creates a new SkillItem instance.
+     * @param {Partial<SkillItem>} [$$source = {}] - The source object to create the SkillItem.
+     */
+    constructor($$source = {}) {
+        if (!("id" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["id"] = "";
+        }
+        if (!("name" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["name"] = "";
+        }
+        if (!("description" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["description"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string[] | undefined}
+             */
+            this["toolPerms"] = undefined;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SkillItem instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {SkillItem}
+     */
+    static createFrom($$source = {}) {
+        const $$createField3_0 = $$createType0;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("toolPerms" in $$parsedSource) {
+            $$parsedSource["toolPerms"] = $$createField3_0($$parsedSource["toolPerms"]);
+        }
+        return new SkillItem(/** @type {Partial<SkillItem>} */($$parsedSource));
+    }
+}
+
+// Private type creation functions
+const $$createType0 = $Create.Array($Create.Any);

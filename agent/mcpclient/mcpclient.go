@@ -534,6 +534,42 @@ func (m *Manager) ListTools() []apitypes.ToolDef {
 	return all
 }
 
+// ServerInfo holds MCP server metadata for display purposes.
+type ServerInfo struct {
+	Name      string   `json:"name"`
+	Command   string   `json:"command"`
+	Args      []string `json:"args,omitempty"`
+	ToolCount int      `json:"toolCount"`
+	ToolNames []string `json:"toolNames,omitempty"`
+	Connected bool     `json:"connected"`
+}
+
+// ListServers returns metadata for all configured/connected MCP servers.
+func (m *Manager) ListServers() []ServerInfo {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var infos []ServerInfo
+	for _, def := range m.config.Servers {
+		info := ServerInfo{
+			Name:    def.Name,
+			Command: def.Command,
+			Args:    def.Args,
+		}
+		if sc, ok := m.servers[def.Name]; ok {
+			sc.mu.Lock()
+			info.Connected = sc.alive
+			info.ToolCount = len(sc.tools)
+			for _, t := range sc.tools {
+				info.ToolNames = append(info.ToolNames, t.Name)
+			}
+			sc.mu.Unlock()
+		}
+		infos = append(infos, info)
+	}
+	return infos
+}
+
 // Close shuts down all server connections.
 func (m *Manager) Close() {
 	m.mu.Lock()

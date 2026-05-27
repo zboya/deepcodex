@@ -92,6 +92,7 @@ type Options struct {
 
 // Harness wraps a fully-initialized agent runtime with a simple API.
 type Harness struct {
+	Opts     Options
 	Runtime  *agent.ConversationRuntime
 	Executor *agent.RegistryExecutor
 	ToolImpl *toolimpl.Registry
@@ -99,6 +100,9 @@ type Harness struct {
 
 	// skills holds all loaded skills for runtime listing/activation.
 	skills []skills.Skill
+
+	// mcpManager holds the MCP client manager (may be nil if no config).
+	mcpManager *mcpclient.Manager
 
 	// internal cleanup functions
 	cleanups []func()
@@ -131,7 +135,9 @@ func New(opts Options) (*Harness, error) {
 		repl.SkipProjectConfig = true
 	}
 
-	h := &Harness{}
+	h := &Harness{
+		Opts: opts,
+	}
 
 	// 1. Resolve provider
 	provider, resolvedModel, err := apiclient.ResolveProvider(opts.Model, opts.APIKey)
@@ -166,8 +172,9 @@ func New(opts Options) (*Harness, error) {
 	toolImpl := toolimpl.NewRegistry()
 
 	// 4. Register advanced tools
-	cleanup := wireAdvancedTools(toolImpl, opts.HashlineEnabled, opts.MCPConfigPath)
+	mcpMgr, cleanup := wireAdvancedTools(toolImpl, opts.HashlineEnabled, opts.MCPConfigPath)
 	h.cleanups = append(h.cleanups, cleanup)
+	h.mcpManager = mcpMgr
 
 	// 5. Create executor
 	executor := agent.NewRegistryExecutor(toolImpl, toolReg)
@@ -265,29 +272,20 @@ func (h *Harness) Run(ctx context.Context, msg apitypes.InputMessage) (<-chan ap
 
 // ListSkills returns all loaded skills.
 func (h *Harness) ListSkills() []skills.Skill {
-	return h.skills
+	skillLoader := skills.NewSkillLoader(h.Opts.SkillsDir)
+	loadedSkills, skillErrs := skillLoader.LoadAll()
+	for _, e := range skillErrs {
+		slog.Info(fmt.Sprintf("[harness/skills] %v", e))
+	}
+	return loadedSkills
 }
 
-// ActivateSkill activates a skill by name, injecting its system prompt into the conversation.
-// Returns an error if the skill is not found or if sending the activation message fails.
-func (h *Harness) ActivateSkill(ctx context.Context, name string) error {
-	var found *skills.Skill
-	for i := range h.skills {
-		if h.skills[i].Name == name {
-			found = &h.skills[i]
-			break
-		}
+// ListMCPServers returns information about connected MCP servers for UI display.
+func (h *Harness) ListMCPServers() []mcpclient.ServerInfo {
+	if h.mcpManager == nil {
+		return []mcpclient.ServerInfo{}
 	}
-	if found == nil {
-		return fmt.Errorf("unknown skill: %s", name)
-	}
-
-	activationMsg := fmt.Sprintf("The following skill has been activated: %s. Apply these guidelines:\n\n%s", found.Name, found.SystemPrompt)
-	_, err := h.Runtime.SendUserMessage(ctx, activationMsg)
-	if err != nil {
-		return fmt.Errorf("activating skill %s: %w", name, err)
-	}
-	return nil
+	return h.mcpManager.ListServers()
 }
 
 // Chat sends a message and returns the full response (non-streaming).
@@ -322,7 +320,7 @@ func (h *Harness) Close() {
 
 // --- internal helpers ---
 
-func wireAdvancedTools(toolImpl *toolimpl.Registry, hashlineEnabled bool, mcpConfigPath string) func() {
+func wireAdvancedTools(toolImpl *toolimpl.Registry, hashlineEnabled bool, mcpConfigPath string) (*mcpclient.Manager, func()) {
 	if hashlineEnabled {
 		hashline.RegisterHashlineTools(toolImpl)
 	}
@@ -342,7 +340,7 @@ func wireAdvancedTools(toolImpl *toolimpl.Registry, hashlineEnabled bool, mcpCon
 		mcpMgr, err := mcpclient.NewManager(mcpConfigPath)
 		if err != nil {
 			slog.Error(fmt.Sprintf("[harness/mcpclient] failed to create manager: %v", err))
-			return tmuxMgr.KillAll
+			return nil, tmuxMgr.KillAll
 		}
 
 		if connectErr := mcpMgr.ConnectAll(); connectErr != nil {
@@ -354,13 +352,13 @@ func wireAdvancedTools(toolImpl *toolimpl.Registry, hashlineEnabled bool, mcpCon
 			toolImpl.Set(toolName, &mcpToolAdapter{mgr: mcpMgr, toolName: toolName})
 		}
 
-		return func() {
+		return mcpMgr, func() {
 			tmuxMgr.KillAll()
 			mcpMgr.Close()
 		}
 	}
 
-	return tmuxMgr.KillAll
+	return nil, tmuxMgr.KillAll
 }
 
 type mcpToolAdapter struct {
