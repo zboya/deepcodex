@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/exec"
@@ -35,19 +36,35 @@ type Registry struct {
 	executors map[string]ToolExecutor
 }
 
+// ToolCtx provides contextual information to tools, such as the working directory.
+type ToolCtx struct {
+	WorkDir string
+}
+
+// resolvePath resolves a relative path against WorkDir. Absolute paths are returned as-is.
+func (c *ToolCtx) resolvePath(path string) string {
+	if filepath.IsAbs(path) {
+		return path
+	}
+	if c.WorkDir != "" {
+		return filepath.Join(c.WorkDir, path)
+	}
+	return path
+}
+
 // NewRegistry creates a Registry with all built-in tool implementations.
-func NewRegistry() *Registry {
+func NewRegistry(toolCtx ToolCtx) *Registry {
 	r := &Registry{executors: make(map[string]ToolExecutor)}
-	r.executors["bashtool"] = &BashTool{}
-	r.executors["filereadtool"] = &FileReadTool{}
-	r.executors["fileedittool"] = &FileEditTool{}
-	r.executors["filewritetool"] = &FileWriteTool{}
-	r.executors["globtool"] = &GlobTool{}
-	r.executors["greptool"] = &GrepTool{}
-	r.executors["listdirectorytool"] = &ListDirectoryTool{}
+	r.executors["bashtool"] = &BashTool{ToolCtx: toolCtx}
+	r.executors["filereadtool"] = &FileReadTool{ToolCtx: toolCtx}
+	r.executors["fileedittool"] = &FileEditTool{ToolCtx: toolCtx}
+	r.executors["filewritetool"] = &FileWriteTool{ToolCtx: toolCtx}
+	r.executors["globtool"] = &GlobTool{ToolCtx: toolCtx}
+	r.executors["greptool"] = &GrepTool{ToolCtx: toolCtx}
+	r.executors["listdirectorytool"] = &ListDirectoryTool{ToolCtx: toolCtx}
 	r.executors["webfetchtool"] = &WebFetchTool{}
 	r.executors["websearchtool"] = &WebSearchTool{}
-	r.executors["notebookedittool"] = &FileEditTool{} // .ipynb files are JSON
+	r.executors["notebookedittool"] = &FileEditTool{ToolCtx: toolCtx} // .ipynb files are JSON
 	return r
 }
 
@@ -82,7 +99,9 @@ func (r *Registry) ExecuteTool(name, payload string) ToolResult {
 // --- BashTool ---
 
 // BashTool executes shell commands.
-type BashTool struct{}
+type BashTool struct {
+	ToolCtx
+}
 
 func (t *BashTool) Execute(params map[string]interface{}) ToolResult {
 	command, _ := params["command"].(string)
@@ -105,7 +124,11 @@ func (t *BashTool) Execute(params map[string]interface{}) ToolResult {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutMs)*time.Millisecond)
 	defer cancel()
 
+	slog.Info("BashTool", "command", command, "workDir", t.WorkDir, "timeoutMs", timeoutMs)
 	cmd := exec.CommandContext(ctx, "sh", "-c", command)
+	if t.WorkDir != "" {
+		cmd.Dir = t.resolvePath(t.WorkDir)
+	}
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -149,13 +172,16 @@ func (t *BashTool) Execute(params map[string]interface{}) ToolResult {
 // --- FileReadTool ---
 
 // FileReadTool reads file contents with optional line range.
-type FileReadTool struct{}
+type FileReadTool struct {
+	ToolCtx
+}
 
 func (t *FileReadTool) Execute(params map[string]interface{}) ToolResult {
 	path, _ := params["path"].(string)
 	if path == "" {
 		return ToolResult{Success: false, Error: "missing required param: path"}
 	}
+	path = t.resolvePath(path)
 
 	// Handle PDF files via the pdf package.
 	if strings.EqualFold(filepath.Ext(path), ".pdf") {
@@ -211,7 +237,9 @@ func (t *FileReadTool) Execute(params map[string]interface{}) ToolResult {
 // --- FileEditTool ---
 
 // FileEditTool edits files via exact string replacement.
-type FileEditTool struct{}
+type FileEditTool struct {
+	ToolCtx
+}
 
 func (t *FileEditTool) Execute(params map[string]interface{}) ToolResult {
 	path, _ := params["path"].(string)
@@ -221,6 +249,7 @@ func (t *FileEditTool) Execute(params map[string]interface{}) ToolResult {
 	if path == "" || oldText == "" {
 		return ToolResult{Success: false, Error: "missing required params: path, old_text"}
 	}
+	path = t.resolvePath(path)
 
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -249,7 +278,9 @@ func (t *FileEditTool) Execute(params map[string]interface{}) ToolResult {
 // --- FileWriteTool ---
 
 // FileWriteTool creates or overwrites files.
-type FileWriteTool struct{}
+type FileWriteTool struct {
+	ToolCtx
+}
 
 func (t *FileWriteTool) Execute(params map[string]interface{}) ToolResult {
 	path, _ := params["path"].(string)
@@ -258,6 +289,7 @@ func (t *FileWriteTool) Execute(params map[string]interface{}) ToolResult {
 	if path == "" {
 		return ToolResult{Success: false, Error: "missing required param: path"}
 	}
+	path = t.resolvePath(path)
 
 	// Create parent directories
 	dir := filepath.Dir(path)
@@ -277,7 +309,9 @@ func (t *FileWriteTool) Execute(params map[string]interface{}) ToolResult {
 // --- GlobTool ---
 
 // GlobTool finds files matching a glob pattern.
-type GlobTool struct{}
+type GlobTool struct {
+	ToolCtx
+}
 
 func (t *GlobTool) Execute(params map[string]interface{}) ToolResult {
 	pattern, _ := params["pattern"].(string)
@@ -287,8 +321,12 @@ func (t *GlobTool) Execute(params map[string]interface{}) ToolResult {
 
 	basePath, _ := params["path"].(string)
 	if basePath == "" {
+		basePath = t.WorkDir
+	}
+	if basePath == "" {
 		basePath = "."
 	}
+	basePath = t.resolvePath(basePath)
 
 	var matches []string
 	err := filepath.WalkDir(basePath, func(path string, d fs.DirEntry, err error) error {
@@ -331,7 +369,9 @@ func (t *GlobTool) Execute(params map[string]interface{}) ToolResult {
 // --- GrepTool ---
 
 // GrepTool searches file contents for a pattern.
-type GrepTool struct{}
+type GrepTool struct {
+	ToolCtx
+}
 
 func (t *GrepTool) Execute(params map[string]interface{}) ToolResult {
 	pattern, _ := params["pattern"].(string)
@@ -341,8 +381,12 @@ func (t *GrepTool) Execute(params map[string]interface{}) ToolResult {
 
 	searchPath, _ := params["path"].(string)
 	if searchPath == "" {
+		searchPath = t.WorkDir
+	}
+	if searchPath == "" {
 		searchPath = "."
 	}
+	searchPath = t.resolvePath(searchPath)
 
 	include, _ := params["include"].(string)
 	patternLower := strings.ToLower(pattern)
@@ -409,13 +453,19 @@ func (t *GrepTool) Execute(params map[string]interface{}) ToolResult {
 // --- ListDirectoryTool ---
 
 // ListDirectoryTool lists directory contents.
-type ListDirectoryTool struct{}
+type ListDirectoryTool struct {
+	ToolCtx
+}
 
 func (t *ListDirectoryTool) Execute(params map[string]interface{}) ToolResult {
 	path, _ := params["path"].(string)
 	if path == "" {
+		path = t.WorkDir
+	}
+	if path == "" {
 		path = "."
 	}
+	path = t.resolvePath(path)
 
 	recursive := false
 	if v, ok := params["recursive"]; ok {

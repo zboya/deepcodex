@@ -149,6 +149,7 @@ func (c *Chat) CreateChat(title string) ChatItem {
 // 前端通过监听 "chat:delta" 事件接收流式文本片段，
 // 监听 "chat:done" 事件接收完成信号。
 func (c *Chat) SendMessage(input *InputMessage) Message {
+	slog.Info("[app] SendMessage called", "chatID", input.ChatID, "model", input.Model, "userInput", input.UserInput, "projPath", input.Proj.Path, "sendOptions", input.SendOptions)
 	// 创建可取消的 context，并保存 cancel 供 StopMessage 使用
 	ctx, cancel := context.WithCancel(context.Background())
 	c.cancelMu.Lock()

@@ -578,10 +578,7 @@ func main() {
 
 			// Use harness for core initialization
 			h, err := harness.New(harness.Options{
-				Model:           model,
-				APIKey:          apiKey,
-				MaxTurns:        maxTurns,
-				MaxTokens:       harnessMaxTokens,
+
 				SkillName:       skillName,
 				SkipPermissions: skipPerms,
 				HashlineEnabled: hashlineEnabled,
@@ -590,6 +587,15 @@ func main() {
 				NoProjectConfig: noProjectConfig,
 				ToolCallback:    toolCb,
 				Prompter:        prompter,
+			})
+			if err != nil {
+				return err
+			}
+			err = h.Init(harness.ModelOptions{
+				Model:     model,
+				APIKey:    apiKey,
+				MaxTurns:  maxTurns,
+				MaxTokens: harnessMaxTokens,
 			})
 			if err != nil {
 				return err
@@ -906,10 +912,7 @@ func main() {
 
 			// Use harness for initialization
 			h, err := harness.New(harness.Options{
-				Model:           model,
-				APIKey:          apiKey,
-				MaxTurns:        maxTurns,
-				MaxTokens:       maxTokens,
+
 				SkillName:       skillName,
 				SkipPermissions: true,
 				HashlineEnabled: hashlineEnabled,
@@ -917,6 +920,12 @@ func main() {
 			if err != nil {
 				return err
 			}
+			h.Init(harness.ModelOptions{
+				Model:     model,
+				APIKey:    apiKey,
+				MaxTurns:  maxTurns,
+				MaxTokens: maxTokens,
+			})
 			defer h.Close()
 
 			if printPrompt {
@@ -999,7 +1008,7 @@ func main() {
 			addr, _ := cmd.Flags().GetString("addr")
 
 			// Create the real tool implementation registry
-			toolImpl := toolimpl.NewRegistry()
+			toolImpl := toolimpl.NewRegistry(toolimpl.ToolCtx{})
 			server := mcp.NewMCPServer(toolReg, toolImpl, cmdReg, rt, sessionStore, version)
 
 			switch transport {

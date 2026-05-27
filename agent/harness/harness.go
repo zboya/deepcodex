@@ -119,10 +119,9 @@ type Harness struct {
 // New creates a fully-initialized Harness. Call Close() when done to release resources.
 func New(opts Options) (*Harness, error) {
 	// Change to the specified working directory if provided.
-	if opts.WorkDir != "" {
+	if opts.WorkDir == "" {
 		opts.WorkDir = getDefaultWorkDir()
 	}
-
 	if opts.PluginsDir == "" {
 		opts.PluginsDir = filepath.Join(".deepcodex", "plugins")
 	}
@@ -178,7 +177,7 @@ func (h *Harness) Init(opts ModelOptions) error {
 		return fmt.Errorf("loading tool registry: %w", err)
 	}
 
-	toolImpl := toolimpl.NewRegistry()
+	toolImpl := toolimpl.NewRegistry(toolimpl.ToolCtx{WorkDir: h.Opts.WorkDir})
 
 	// 4. Register advanced tools
 	mcpMgr, cleanup := wireAdvancedTools(toolImpl, h.Opts.HashlineEnabled, h.Opts.MCPConfigPath)

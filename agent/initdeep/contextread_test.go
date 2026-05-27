@@ -114,7 +114,7 @@ func TestContextAwareReadTool_AncestorAgentsMD(t *testing.T) {
 }
 
 func TestRegisterContextAwareRead(t *testing.T) {
-	r := toolimpl.NewRegistry()
+	r := toolimpl.NewRegistry(toolimpl.ToolCtx{})
 	origRead := r.Get("filereadtool")
 	if origRead == nil {
 		t.Fatal("expected filereadtool to exist in registry")

@@ -25,7 +25,7 @@ func newTestServer(t *testing.T) *MCPServer {
 	if err != nil {
 		t.Fatalf("failed to create command registry: %v", err)
 	}
-	toolImpl := toolimpl.NewRegistry()
+	toolImpl := toolimpl.NewRegistry(toolimpl.ToolCtx{})
 	sessionStore := session.NewSessionStore("")
 	execReg := execution.BuildExecutionRegistry(cmdReg, toolReg)
 	rt := runtime.NewPortRuntime(cmdReg, toolReg, execReg, sessionStore)

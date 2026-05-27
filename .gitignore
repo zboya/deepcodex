@@ -1,5 +1,6 @@
 .vscode
 .deepcodex
+.sessions
 build/bin
 node_modules
 frontend/dist
