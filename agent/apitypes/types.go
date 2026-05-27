@@ -1,12 +1,20 @@
 package apitypes
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"image"
+	"image/gif"
+	"image/jpeg"
+	"image/png"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"golang.org/x/image/draw"
+	_ "golang.org/x/image/webp"
 )
 
 // --- Request Types ---
@@ -55,7 +63,56 @@ func UserToolResult(toolUseID, content string, isError bool) InputMessage {
 	}
 }
 
+// maxImageDimension is the maximum allowed width or height for images.
+const maxImageDimension = 1280
+
+// ResizeImageIfNeeded checks if the image data exceeds maxImageDimension in width or height,
+// and resizes it proportionally if so. Returns the (possibly modified) data and media type.
+func ResizeImageIfNeeded(data []byte, mediaType string) ([]byte, string, error) {
+	img, _, err := image.Decode(bytes.NewReader(data))
+	if err != nil {
+		return nil, "", fmt.Errorf("decoding image: %w", err)
+	}
+
+	bounds := img.Bounds()
+	origW := bounds.Dx()
+	origH := bounds.Dy()
+
+	if origW <= maxImageDimension && origH <= maxImageDimension {
+		return data, mediaType, nil
+	}
+
+	newW, newH := origW, origH
+	if origW >= origH {
+		newW = maxImageDimension
+		newH = origH * maxImageDimension / origW
+	} else {
+		newH = maxImageDimension
+		newW = origW * maxImageDimension / origH
+	}
+
+	dst := image.NewRGBA(image.Rect(0, 0, newW, newH))
+	draw.BiLinear.Scale(dst, dst.Bounds(), img, bounds, draw.Over, nil)
+
+	var buf bytes.Buffer
+	switch mediaType {
+	case "image/jpeg":
+		err = jpeg.Encode(&buf, dst, &jpeg.Options{Quality: 95})
+	case "image/gif":
+		err = gif.Encode(&buf, dst, nil)
+	default:
+		// PNG and webp both output as PNG after resize
+		mediaType = "image/png"
+		err = png.Encode(&buf, dst)
+	}
+	if err != nil {
+		return nil, "", fmt.Errorf("encoding resized image: %w", err)
+	}
+	return buf.Bytes(), mediaType, nil
+}
+
 // UserImageAndText creates a user message with an image and text.
+// If the image exceeds 1280px in width or height, it will be resized proportionally.
 func UserImageAndText(text string, imagePath string) (InputMessage, error) {
 	data, err := os.ReadFile(imagePath)
 	if err != nil {
@@ -72,6 +129,12 @@ func UserImageAndText(text string, imagePath string) (InputMessage, error) {
 		mediaType = "image/gif"
 	case ".webp":
 		mediaType = "image/webp"
+	}
+
+	// Resize if needed
+	data, mediaType, err = ResizeImageIfNeeded(data, mediaType)
+	if err != nil {
+		return InputMessage{}, err
 	}
 
 	encoded := base64.StdEncoding.EncodeToString(data)

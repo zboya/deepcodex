@@ -66,6 +66,8 @@ interface SidebarProps {
   onSelectProject: (id: string) => void;
   onSelectChat: (projectId: string, chatId: string) => void;
   onOpenSettings?: () => void;
+  onOpenPlugins?: () => void;
+  onOpenSearch?: () => void;
   onAddProject?: () => void;
   onDeleteProject?: (id: string) => void;
   onLoadSessions?: (projectId: string) => void;
@@ -198,6 +200,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   onSelectProject,
   onSelectChat,
   onOpenSettings,
+  onOpenPlugins,
+  onOpenSearch,
   onAddProject,
   onDeleteProject,
   onLoadSessions,
@@ -210,11 +214,11 @@ const Sidebar: React.FC<SidebarProps> = ({
           <PenSquare size={16} />
           <span>新对话</span>
         </button>
-        <button className="nav-item">
+        <button className="nav-item" onClick={onOpenSearch}>
           <Search size={16} />
           <span>搜索</span>
         </button>
-        <button className="nav-item">
+        <button className="nav-item" onClick={onOpenPlugins}>
           <Grid size={16} />
           <span>插件</span>
         </button>

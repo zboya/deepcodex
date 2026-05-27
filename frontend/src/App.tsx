@@ -3,6 +3,8 @@ import './App.css';
 import Sidebar from './components/Sidebar';
 import MainContent from './components/MainContent';
 import SettingsPage from './components/SettingsPage';
+import PluginsPage from './components/PluginsPage';
+import SearchModal from './components/SearchModal';
 import { ChatItem, ChatMessage, Project } from './types';
 import {
   ListProjects,
@@ -26,8 +28,9 @@ function App() {
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
 
-  // 当前视图: chat | settings
-  const [view, setView] = useState<'chat' | 'settings'>('chat');
+  // 当前视图: chat | settings | plugins
+  const [view, setView] = useState<'chat' | 'settings' | 'plugins'>('chat');
+  const [showSearch, setShowSearch] = useState(false);
 
   // ─── 初始化 ─────────────────────────────────────────────────────────────────
 
@@ -244,6 +247,26 @@ function App() {
     <div id="App" className="app-root">
       {view === 'settings' ? (
         <SettingsPage onBack={() => setView('chat')} />
+      ) : view === 'plugins' ? (
+        <>
+          <Sidebar
+            collapsed={false}
+            projects={projects}
+            projectSessions={projectSessions}
+            activeProjectId={activeProjectId}
+            activeChatId={activeChatId}
+            onNewChat={() => { handleNewChat(); setView('chat'); }}
+            onSelectProject={handleSelectProject}
+            onSelectChat={(pid, cid) => { handleSelectChat(pid, cid); setView('chat'); }}
+            onOpenSettings={() => setView('settings')}
+            onOpenPlugins={() => setView('plugins')}
+            onOpenSearch={() => setShowSearch(true)}
+            onAddProject={handleAddProject}
+            onDeleteProject={handleDeleteProject}
+            onLoadSessions={handleLoadSessions}
+          />
+          <PluginsPage />
+        </>
       ) : (
         <>
           <Sidebar
@@ -256,6 +279,8 @@ function App() {
             onSelectProject={handleSelectProject}
             onSelectChat={handleSelectChat}
             onOpenSettings={() => setView('settings')}
+            onOpenPlugins={() => setView('plugins')}
+            onOpenSearch={() => setShowSearch(true)}
             onAddProject={handleAddProject}
             onDeleteProject={handleDeleteProject}
             onLoadSessions={handleLoadSessions}
@@ -269,6 +294,19 @@ function App() {
             onLinkClick={(url) => OpenBrowserWindow(url)}
           />
         </>
+      )}
+
+      {/* 搜索弹窗：全局覆盖，不受视图影响 */}
+      {showSearch && (
+        <SearchModal
+          projects={projects}
+          projectSessions={projectSessions}
+          onSelect={(pid, cid) => {
+            handleSelectChat(pid, cid);
+            setView('chat');
+          }}
+          onClose={() => setShowSearch(false)}
+        />
       )}
     </div>
   );
