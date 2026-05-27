@@ -4,14 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"path/filepath"
 	"strings"
 	"sync"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/zboya/deepcodex/agent/apiclient"
-	"github.com/zboya/deepcodex/agent/harness"
-	"github.com/zboya/deepcodex/agent/session"
 	"github.com/zboya/deepcodex/app"
 )
 
@@ -21,10 +18,6 @@ type App struct {
 
 	*app.Models
 	*app.Projects
-
-	// 全局共享的默认 Chat（无项目时使用）
-	defaultChat    *app.Chat
-	defaultHarness *harness.Harness
 
 	// 每个项目对应独立的 Chat 实例（key = projectID）
 	projectChats map[string]*app.Chat
@@ -50,26 +43,11 @@ func (a *App) ServiceStartup(ctx context.Context, _ application.ServiceOptions) 
 		slog.Warn(fmt.Sprintf("[app] ensure default providers failed: %v", err))
 	}
 
-	// Initialize the default AI harness (no project)
-	h, err := harness.New(harness.Options{
-		SkipPermissions: true,
-		MaxTurns:        30,
-	})
-	if err != nil {
-		slog.Error(fmt.Sprintf("[app] failed to initialize default harness: %v", err))
-		return err
-	}
-	a.defaultHarness = h
-	a.defaultChat = app.NewChat(ctx, h)
-	slog.Info(fmt.Sprintf("[app] default harness initialized, model=%s", h.Model))
 	return nil
 }
 
 // ServiceShutdown is called by Wails v3 when the bound service shuts down.
 func (a *App) ServiceShutdown() error {
-	if a.defaultChat != nil {
-		a.defaultChat.Close()
-	}
 	a.chatMu.Lock()
 	for _, c := range a.projectChats {
 		c.Close()
@@ -114,10 +92,6 @@ func (a *App) SelectImageFiles() ([]string, error) {
 
 // getChat 返回指定 projectID 对应的 Chat；projectID 为空时返回默认 Chat
 func (a *App) getChat(projectID string) *app.Chat {
-	if projectID == "" {
-		return a.defaultChat
-	}
-
 	a.chatMu.RLock()
 	c, ok := a.projectChats[projectID]
 	a.chatMu.RUnlock()
@@ -134,6 +108,11 @@ func (a *App) initProjectChat(projectID string) *app.Chat {
 	a.chatMu.Lock()
 	defer a.chatMu.Unlock()
 
+	if projectID == "" { // default chat
+		c := app.NewChatWithWorkDir(a.ctx, "")
+		a.projectChats[projectID] = c
+	}
+
 	// double-check
 	if c, ok := a.projectChats[projectID]; ok {
 		return c
@@ -142,22 +121,11 @@ func (a *App) initProjectChat(projectID string) *app.Chat {
 	proj, err := a.Projects.GetProject(projectID)
 	if err != nil {
 		slog.Error(fmt.Sprintf("[app] project not found: %s, %v", projectID, err))
-		return a.defaultChat
-	}
-
-	h, err := harness.New(harness.Options{
-		WorkDir:         proj.Path,
-		SkipPermissions: true,
-		MaxTurns:        30,
-	})
-	if err != nil {
-		slog.Error(fmt.Sprintf("[app] failed to initialize harness for project %s: %v", proj.Name, err))
-		return a.defaultChat
+		return a.projectChats[""]
 	}
 
 	// 会话存储在项目目录下的 .port_sessions
-	sessDir := filepath.Join(proj.Path, ".port_sessions")
-	c := app.NewChatWithWorkDir(a.ctx, h, proj.Path, sessDir)
+	c := app.NewChatWithWorkDir(a.ctx, proj.Path)
 	a.projectChats[projectID] = c
 	slog.Info(fmt.Sprintf("[app] project harness initialized: %s, workDir=%s", proj.Name, proj.Path))
 	return c
@@ -176,10 +144,8 @@ func (a *App) GetSessionMessages(projectID string, sessionID string) []app.Messa
 
 // SendMessage 发送消息（流式）
 // imagePaths 为可选的图片路径列表（前端通过 SelectImageFiles 选择得到），非空时走多模态通道。
-func (a *App) SendMessage(projectID string, chatID string, content string, imagePaths []string, opts app.SendOptions) app.Message {
-	// Check if model has changed and reinitialize harness if needed
-	a.ensureActiveModel(projectID)
-	return a.getChat(projectID).SendMessage(chatID, content, imagePaths, opts)
+func (a *App) SendMessage(input *app.InputMessage) app.Message {
+	return a.getChat(input.Proj.ID).SendMessage(input)
 }
 
 // StopMessage 中止当前对话
@@ -204,72 +170,20 @@ func (a *App) Close() {
 
 // ─── MCP & Skills 接口 ──────────────────────────────────────────────────────
 
-// ensureActiveModel checks if the active provider/model in config differs from
-// the current harness's model. If so, it reinitializes the harness.
-func (a *App) ensureActiveModel(projectID string) {
-	// Resolve what the user currently has selected
-	cfg, err := apiclient.LoadProvidersConfig()
-	if err != nil || cfg == nil {
-		return
-	}
-
-	var wantModel string
-	if pc, ok := cfg.ResolveActiveProvider(); ok && pc.DefaultModel != "" {
-		wantModel = pc.DefaultModel
-	}
-	if wantModel == "" {
-		return
-	}
-
-	if projectID == "" {
-		// Default harness path
-		if a.defaultHarness != nil && a.defaultHarness.Model == wantModel {
-			return
-		}
-		slog.Info(fmt.Sprintf("[app] model changed, reinitializing default harness: %s -> %s",
-			a.defaultHarness.Model, wantModel))
-		h, err := harness.New(harness.Options{
-			Model:           wantModel,
-			SkipPermissions: true,
-			MaxTurns:        30,
-		})
-		if err != nil {
-			slog.Error(fmt.Sprintf("[app] failed to reinitialize default harness: %v", err))
-			return
-		}
-		if a.defaultHarness != nil {
-			a.defaultHarness.Close()
-		}
-		a.defaultHarness = h
-		a.defaultChat = app.NewChat(a.ctx, h)
-		slog.Info(fmt.Sprintf("[app] default harness reinitialized, model=%s", h.Model))
-	} else {
-		// Project harness path
-		a.chatMu.RLock()
-		c, ok := a.projectChats[projectID]
-		a.chatMu.RUnlock()
-		if !ok {
-			return // will be lazily created with correct model
-		}
-		_ = c // project chats use their own harness; for now skip dynamic switching
-	}
-}
-
 // ListMCPServers 返回默认 harness 中已配置的 MCP 服务器列表。
-func (a *App) ListMCPServers() []app.MCPServerItem {
-	if a.defaultHarness == nil {
-		return []app.MCPServerItem{}
-	}
-	mcp := app.NewMCP(a.defaultHarness)
+func (a *App) ListMCPServers(projectID string) []app.MCPServerItem {
+	h := a.getChat(projectID).GetHarness()
+	mcp := app.NewMCP(h)
 	return mcp.List()
 }
 
 // ListSkills 返回所有可用的 Skills 列表（内置 + 用户自定义）。
-func (a *App) ListSkills() []app.SkillItem {
-	if a.defaultHarness == nil {
+func (a *App) ListSkills(projectID string) []app.SkillItem {
+	h := a.getChat(projectID).GetHarness()
+	if h == nil {
 		return []app.SkillItem{}
 	}
-	sk := app.NewSkills(a.defaultHarness)
+	sk := app.NewSkills(h)
 	return sk.List()
 }
 
@@ -281,26 +195,7 @@ func (a *App) ListSessionsForProject(projectID string) []app.ChatItem {
 	if err != nil {
 		return []app.ChatItem{}
 	}
-	sessDir := filepath.Join(proj.Path, ".port_sessions")
-	store := session.NewSessionStore(sessDir)
-	metas, err := store.ListSessions()
-	if err != nil {
-		return []app.ChatItem{}
-	}
-	var items []app.ChatItem
-	for _, m := range metas {
-		title := m.Summary
-		if title == "" {
-			title = m.SessionID
-		}
-		items = append(items, app.ChatItem{
-			ID:         m.SessionID,
-			Title:      title,
-			CreatedAt:  m.ModTime.Unix(),
-			WorkingDir: m.WorkingDir,
-		})
-	}
-	return items
+	return a.getChat(proj.ID).ListChats()
 }
 
 // OpenBrowserWindow 使用 Wails v3 官方多窗口 API 打开内置浏览器窗口。

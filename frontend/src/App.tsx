@@ -16,6 +16,7 @@ import {
   OpenBrowserWindow,
 } from '../bindings/github.com/zboya/deepcodex/app';
 import { WailsAgent } from './agui/WailsAgent';
+import { ProjectEntry } from '../bindings/github.com/zboya/deepcodex/app/models';
 import type { Message as AGUIMessage } from '@ag-ui/core';
 
 function App() {
@@ -167,8 +168,10 @@ function App() {
 
   useEffect(() => {
     const threadId = activeChatId || `default-${Date.now()}`;
+    const proj = projects.find((p) => p.id === activeProjectId) ?? null;
     const agent = new WailsAgent({
       projectId: activeProjectId || '',
+      project: proj ? new ProjectEntry({ id: proj.id, name: proj.name, path: proj.path, createdAt: proj.createdAt || 0 }) : null,
       threadId,
       initialMessages: chatMessagesToAGUI(messages),
     });
@@ -201,7 +204,7 @@ function App() {
   // ─── 发消息 ──────────────────────────────────────────────────────────────────
 
   const handleSendMessage = useCallback(
-    async (text: string, imagePaths: string[] = []) => {
+    async (text: string, imagePaths: string[] = [], model: string = '') => {
       if (isStreaming) return;
       const agent = agentRef.current;
       if (!agent) return;
@@ -215,6 +218,9 @@ function App() {
         // 透传给 WailsAgent，由 run() 时随 SendMessage 一并发送给后端
         agent.pendingImagePaths = imagePaths;
       }
+
+      // 设置本次发送使用的模型
+      agent.pendingModel = model;
 
       // AG-UI 规范：在 runAgent 之前把用户消息推入 agent.messages
       agent.addMessage({

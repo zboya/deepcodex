@@ -28,6 +28,8 @@ interface InputAreaProps {
   imagePaths?: string[];
   /** 图片附件变更回调，由父组件维护实际状态 */
   onChangeImagePaths?: (paths: string[]) => void;
+  /** 当前选中模型变更时通知父组件 */
+  onModelChange?: (model: string) => void;
 }
 
 const InputArea: React.FC<InputAreaProps> = ({
@@ -39,6 +41,7 @@ const InputArea: React.FC<InputAreaProps> = ({
   compact,
   imagePaths = [],
   onChangeImagePaths,
+  onModelChange,
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   // 防止文件对话框重复触发（macOS 下连续输入两个 @ 会进入两次）
@@ -177,6 +180,13 @@ const InputArea: React.FC<InputAreaProps> = ({
   // 当前显示的 provider / model
   const current = providers.find((p) => p.name === activeProvider);
   const currentModel = current?.defaultModel || '';
+
+  // 通知父组件当前模型变化
+  useEffect(() => {
+    if (onModelChange && currentModel) {
+      onModelChange(currentModel);
+    }
+  }, [currentModel, onModelChange]);
 
   const handleSelect = async (provider: apiclient.ProviderConfig, model: string) => {
     try {

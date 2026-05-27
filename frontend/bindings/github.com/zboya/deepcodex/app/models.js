@@ -59,6 +59,84 @@ export class ChatItem {
 }
 
 /**
+ * ChatItem represents a chat session in the UI, with metadata for display.
+ */
+export class InputMessage {
+    /**
+     * Creates a new InputMessage instance.
+     * @param {Partial<InputMessage>} [$$source = {}] - The source object to create the InputMessage.
+     */
+    constructor($$source = {}) {
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["chat_id"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["model"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["user_input"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string[] | undefined}
+             */
+            this["image_paths"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {ProjectEntry | undefined}
+             */
+            this["proj"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {SendOptions | undefined}
+             */
+            this["send_options"] = undefined;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new InputMessage instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {InputMessage}
+     */
+    static createFrom($$source = {}) {
+        const $$createField3_0 = $$createType0;
+        const $$createField4_0 = $$createType1;
+        const $$createField5_0 = $$createType2;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("image_paths" in $$parsedSource) {
+            $$parsedSource["image_paths"] = $$createField3_0($$parsedSource["image_paths"]);
+        }
+        if ("proj" in $$parsedSource) {
+            $$parsedSource["proj"] = $$createField4_0($$parsedSource["proj"]);
+        }
+        if ("send_options" in $$parsedSource) {
+            $$parsedSource["send_options"] = $$createField5_0($$parsedSource["send_options"]);
+        }
+        return new InputMessage(/** @type {Partial<InputMessage>} */($$parsedSource));
+    }
+}
+
+/**
  * MCPServerItem represents an MCP server entry for frontend display.
  */
 export class MCPServerItem {
@@ -341,3 +419,5 @@ export class SkillItem {
 
 // Private type creation functions
 const $$createType0 = $Create.Array($Create.Any);
+const $$createType1 = ProjectEntry.createFrom;
+const $$createType2 = SendOptions.createFrom;

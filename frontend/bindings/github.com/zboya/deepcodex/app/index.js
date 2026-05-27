@@ -4,6 +4,7 @@
 
 export {
     ChatItem,
+    InputMessage,
     MCPServerItem,
     Message,
     ProjectEntry,

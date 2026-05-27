@@ -4,36 +4,37 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"path/filepath"
+	"os"
 	"sync"
 	"time"
 
-	"github.com/zboya/deepcodex/agent/agent"
 	"github.com/zboya/deepcodex/agent/apitypes"
 	"github.com/zboya/deepcodex/agent/harness"
 	"github.com/zboya/deepcodex/agent/session"
-	"github.com/zboya/deepcodex/agent/worktree"
 	"github.com/zboya/deepcodex/app/agui"
 )
 
 // Chat manages AI conversation sessions for a specific working directory.
 type Chat struct {
-	ctx     context.Context
-	mu      sync.Mutex // protects concurrent sends
+	ctx context.Context
+	mu  sync.Mutex // protects concurrent sends
+
 	harness *harness.Harness
 
-	workDir      string                // the working directory for this chat instance
-	sessionStore *session.SessionStore // persists conversation sessions
+	workDir string // the working directory for this chat instance
 
 	cancelSend context.CancelFunc // cancels the current SendMessage context
 	cancelMu   sync.Mutex         // protects cancelSend
 }
 
-// Project 项目信息
-type Project struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-	Path string `json:"path"`
+// ChatItem represents a chat session in the UI, with metadata for display.
+type InputMessage struct {
+	ChatID      string       `json:"chat_id,omitempty"`
+	Model       string       `json:"model,omitempty"`
+	UserInput   string       `json:"user_input,omitempty"`
+	ImagePaths  []string     `json:"image_paths,omitempty"`
+	Proj        ProjectEntry `json:"proj,omitempty"`
+	SendOptions SendOptions  `json:"send_options,omitempty"`
 }
 
 // ChatItem 对话条目
@@ -64,34 +65,31 @@ type SendOptions struct {
 	ResumeSessionID string `json:"resumeSessionID"`
 }
 
-// NewChat 创建 Chat 实例
-// workDir specifies the project working directory. Pass "" to use the current directory.
-func NewChat(ctx context.Context, h *harness.Harness) *Chat {
-	// Determine session storage directory
-	sessDir := worktree.SessionDir()
-	if sessDir == "" {
-		sessDir = filepath.Join(".deepcodex", "sessions")
-	}
-	return NewChatWithWorkDir(ctx, h, "", sessDir)
-}
-
 // NewChatWithWorkDir creates a Chat instance tied to a specific working directory and session dir.
 // sessDir specifies where sessions are stored (e.g. "<workDir>/.port_sessions").
-func NewChatWithWorkDir(ctx context.Context, h *harness.Harness, workDir string, sessDir string) *Chat {
-	if sessDir == "" {
-		sessDir = filepath.Join(workDir, ".port_sessions")
+func NewChatWithWorkDir(ctx context.Context, workDir string) *Chat {
+	h, err := harness.New(harness.Options{
+		WorkDir: workDir,
+	})
+	if err != nil {
+		slog.Error(fmt.Sprintf("[app] failed to initialize harness for workDir=%s: %v", workDir, err))
+		os.Exit(1)
 	}
 	return &Chat{
-		ctx:          ctx,
-		harness:      h,
-		workDir:      workDir,
-		sessionStore: session.NewSessionStore(sessDir),
+		ctx:     ctx,
+		harness: h,
+		workDir: workDir,
 	}
+}
+
+// GetHarness returns the underlying Harness instance, which may be nil if not initialized.
+func (c *Chat) GetHarness() *harness.Harness {
+	return c.harness
 }
 
 // GetSessionMessages 返回指定会话 ID 的历史消息列表（只读，不恢复到 harness）
 func (c *Chat) GetSessionMessages(sessionID string) []Message {
-	s, err := c.sessionStore.Load(sessionID)
+	s, err := c.harness.SessionStore.Load(sessionID)
 	if err != nil {
 		return []Message{}
 	}
@@ -109,7 +107,7 @@ func (c *Chat) GetSessionMessages(sessionID string) []Message {
 
 // ListChats returns saved chat sessions for the current working directory.
 func (c *Chat) ListChats() []ChatItem {
-	metas, err := c.sessionStore.ListSessions()
+	metas, err := c.harness.SessionStore.ListSessions()
 	if err != nil {
 		slog.Warn("[app] ListChats: failed to list sessions", "err", err)
 		return []ChatItem{}
@@ -150,7 +148,7 @@ func (c *Chat) CreateChat(title string) ChatItem {
 // imagePaths 为可选的图片路径列表，非空时通过多模态消息发送（基于 ChatStreamWithMessage）。
 // 前端通过监听 "chat:delta" 事件接收流式文本片段，
 // 监听 "chat:done" 事件接收完成信号。
-func (c *Chat) SendMessage(chatID string, content string, imagePaths []string, opts SendOptions) Message {
+func (c *Chat) SendMessage(input *InputMessage) Message {
 	// 创建可取消的 context，并保存 cancel 供 StopMessage 使用
 	ctx, cancel := context.WithCancel(context.Background())
 	c.cancelMu.Lock()
@@ -166,6 +164,20 @@ func (c *Chat) SendMessage(chatID string, content string, imagePaths []string, o
 		cancel()
 	}()
 
+	p := FindModelProvider(input.Model)
+	if p == nil {
+		return Message{
+			ID:      fmt.Sprintf("msg-%d", time.Now().UnixNano()),
+			Role:    "assistant",
+			Content: fmt.Sprintf("[错误] 未找到模型所属的 provider: %s", input.Model),
+			Time:    time.Now().Unix(),
+		}
+	}
+	c.harness.Init(harness.ModelOptions{
+		Model:  input.Model,
+		APIKey: p.APIKey,
+	})
+
 	if c.harness == nil {
 		return Message{
 			ID:      fmt.Sprintf("msg-%d", time.Now().UnixNano()),
@@ -179,13 +191,13 @@ func (c *Chat) SendMessage(chatID string, content string, imagePaths []string, o
 	defer c.mu.Unlock()
 
 	// Load historical session if requested (before sending the new message)
-	if err := c.applySessionOpts(opts); err != nil {
+	if err := c.applySessionOpts(input.SendOptions); err != nil {
 		slog.Warn("[app] SendMessage: failed to load session", "err", err)
 		// Non-fatal: continue with fresh context
 	}
 
 	// 创建 AG-UI emitter，threadID 取 chatID
-	em := agui.New(c.ctx, chatID)
+	em := agui.New(c.ctx, input.ChatID)
 	em.RunStarted()
 
 	// 根据是否有图片选择不同的发送通道：
@@ -195,7 +207,7 @@ func (c *Chat) SendMessage(chatID string, content string, imagePaths []string, o
 		ch  <-chan apitypes.StreamEvent
 		err error
 	)
-	msg, buildErr := buildImageMessage(content, imagePaths)
+	msg, buildErr := buildImageMessage(input.UserInput, input.ImagePaths)
 	if buildErr != nil {
 		errMsg := fmt.Sprintf("[错误] 读取图片失败: %v", buildErr)
 		em.RunError(errMsg)
@@ -252,7 +264,7 @@ func (c *Chat) SendMessage(chatID string, content string, imagePaths []string, o
 	})
 
 	// 持久化本轮对话到 sessionStore，保证侧边栏"项目 → 会话"列表能看到
-	c.persistTurn(chatID, content, fullText, imagePaths, usage.InputTokens, usage.OutputTokens)
+	c.persistTurn(input, fullText, usage.InputTokens, usage.OutputTokens)
 
 	return Message{
 		ID:      fmt.Sprintf("msg-%d", time.Now().UnixNano()),
@@ -281,7 +293,7 @@ func (c *Chat) ContinueRecentSession() error {
 	if cwd == "" {
 		return fmt.Errorf("working directory not set")
 	}
-	s, err := c.sessionStore.FindMostRecent(cwd)
+	s, err := c.harness.SessionStore.FindMostRecent(cwd)
 	if err != nil {
 		return fmt.Errorf("no recent session for %s: %w", cwd, err)
 	}
@@ -291,7 +303,7 @@ func (c *Chat) ContinueRecentSession() error {
 
 // ResumeSession loads a specific session by ID into the harness runtime.
 func (c *Chat) ResumeSession(sessionID string) error {
-	s, err := c.sessionStore.Load(sessionID)
+	s, err := c.harness.SessionStore.Load(sessionID)
 	if err != nil {
 		return fmt.Errorf("loading session %s: %w", sessionID, err)
 	}
@@ -328,29 +340,29 @@ func (c *Chat) Close() {
 // 这是 GUI 路径下让"项目 → 会话列表"能显示历史的关键：
 // SendMessage 完成一次流式回包后调用，使 sessionStore 落盘，
 // ListSessionsForProject 才能从 .port_sessions 里读到本会话。
-func (c *Chat) persistTurn(chatID, userText, assistantText string, imagePaths []string, inputTokens, outputTokens int) {
-	if c.sessionStore == nil || chatID == "" {
+func (c *Chat) persistTurn(input *InputMessage, assistantText string, inputTokens, outputTokens int) {
+	if c.harness.SessionStore == nil || input.ChatID == "" {
 		return
 	}
 
-	stored, err := c.sessionStore.Load(chatID)
+	stored, err := c.harness.SessionStore.Load(input.ChatID)
 	if err != nil {
 		// 不存在则新建一份
 		stored = session.StoredSession{
-			SessionID:  chatID,
+			SessionID:  input.ChatID,
 			WorkingDir: c.workDir,
 		}
 	}
 
 	// 多模态消息：图片路径以 markdown 形式附加在文本中保存，
 	// 便于会话恢复时仍能看到 user 引用过的图片。
-	displayUserText := userText
-	if len(imagePaths) > 0 {
+	displayUserText := input.UserInput
+	if len(input.ImagePaths) > 0 {
 		var buf []byte
-		for _, p := range imagePaths {
+		for _, p := range input.ImagePaths {
 			buf = append(buf, []byte(fmt.Sprintf("\n![image](%s)", p))...)
 		}
-		displayUserText = userText + string(buf)
+		displayUserText = input.UserInput + string(buf)
 	}
 
 	if displayUserText != "" {
@@ -372,9 +384,9 @@ func (c *Chat) persistTurn(chatID, userText, assistantText string, imagePaths []
 		stored.WorkingDir = c.workDir
 	}
 
-	if _, err := c.sessionStore.Save(stored); err != nil {
+	if _, err := c.harness.SessionStore.Save(stored); err != nil {
 		slog.Warn("[app] persistTurn: save session failed",
-			"chatID", chatID, "err", err)
+			"chatID", input.ChatID, "err", err)
 	}
 }
 
@@ -392,7 +404,7 @@ func (c *Chat) applySessionOpts(opts SendOptions) error {
 	switch {
 	case opts.ResumeSessionID != "":
 		// Load specific session by ID
-		s, err := c.sessionStore.Load(opts.ResumeSessionID)
+		s, err := c.harness.SessionStore.Load(opts.ResumeSessionID)
 		if err != nil {
 			return fmt.Errorf("loading session %s: %w", opts.ResumeSessionID, err)
 		}
@@ -405,7 +417,7 @@ func (c *Chat) applySessionOpts(opts SendOptions) error {
 		if cwd == "" {
 			return fmt.Errorf("ContinueSession requires a working directory")
 		}
-		s, err := c.sessionStore.FindMostRecent(cwd)
+		s, err := c.harness.SessionStore.FindMostRecent(cwd)
 		if err != nil {
 			return fmt.Errorf("no recent session for %s: %w", cwd, err)
 		}
@@ -433,21 +445,6 @@ func (c *Chat) restoreStoredSession(s session.StoredSession) error {
 	}
 	c.harness.RestoreSession(messages)
 	return nil
-}
-
-// newHarnessForWorkDir is a convenience helper that creates a Harness pre-configured
-// for the given working directory, keeping options minimal for GUI usage.
-// The caller is responsible for calling Close() on the returned Harness.
-func newHarnessForWorkDir(workDir string, extraOpts ...func(*harness.Options)) (*harness.Harness, error) {
-	opts := harness.Options{
-		WorkDir:         workDir,
-		SkipPermissions: true, // GUI typically runs without interactive permission prompts
-		ToolCallback:    agent.NoOpToolCallback{},
-	}
-	for _, fn := range extraOpts {
-		fn(&opts)
-	}
-	return harness.New(opts)
 }
 
 // buildImageMessage 构造一条包含若干图片 + 文本的多模态 user 消息。

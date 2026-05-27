@@ -18,6 +18,7 @@ import (
 	"github.com/zboya/deepcodex/agent/orchestrator"
 	"github.com/zboya/deepcodex/agent/plugins"
 	"github.com/zboya/deepcodex/agent/repl"
+	"github.com/zboya/deepcodex/agent/session"
 	"github.com/zboya/deepcodex/agent/skills"
 	"github.com/zboya/deepcodex/agent/toolimpl"
 	"github.com/zboya/deepcodex/agent/tools"
@@ -29,9 +30,8 @@ import (
 	"github.com/zboya/deepcodex/agent/tmux"
 )
 
-// Options configures the Harness.
-type Options struct {
-	// Model is the model name or alias (e.g. "sonnet", "gpt-4o", "gemini-pro").
+// ModelOptions specifies options related to the LLM model and provider.
+type ModelOptions struct {
 	Model string
 
 	// APIKey overrides the API key from environment variables.
@@ -42,6 +42,11 @@ type Options struct {
 
 	// MaxTokens is the maximum output tokens per request. Default: auto-detected per model.
 	MaxTokens int
+}
+
+// Options configures the Harness.
+type Options struct {
+	// Model is the model name or alias (e.g. "sonnet", "gpt-4o", "gemini-pro").
 
 	// SystemPrompt overrides the default system prompt. If empty, uses the built-in prompt.
 	SystemPrompt string
@@ -92,11 +97,14 @@ type Options struct {
 
 // Harness wraps a fully-initialized agent runtime with a simple API.
 type Harness struct {
-	Opts     Options
+	Opts Options
+
+	SessionStore *session.SessionStore // persists conversation sessions
+
+	Model    string
 	Runtime  *agent.ConversationRuntime
 	Executor *agent.RegistryExecutor
 	ToolImpl *toolimpl.Registry
-	Model    string
 
 	// skills holds all loaded skills for runtime listing/activation.
 	skills []skills.Skill
@@ -110,13 +118,6 @@ type Harness struct {
 
 // New creates a fully-initialized Harness. Call Close() when done to release resources.
 func New(opts Options) (*Harness, error) {
-	if opts.Model == "" {
-		opts.Model = "deepseek"
-	}
-	if opts.MaxTurns <= 0 {
-		opts.MaxTurns = 30
-	}
-
 	// Change to the specified working directory if provided.
 	if opts.WorkDir != "" {
 		opts.WorkDir = getDefaultWorkDir()
@@ -139,10 +140,18 @@ func New(opts Options) (*Harness, error) {
 		Opts: opts,
 	}
 
+	sessDir := filepath.Join(opts.WorkDir, ".sessions")
+	h.SessionStore = session.NewSessionStore(sessDir)
+
+	return h, nil
+}
+
+// Init performs the actual initialization of the Harness, which may involve I/O and can return errors.
+func (h *Harness) Init(opts ModelOptions) error {
 	// 1. Resolve provider
 	provider, resolvedModel, err := apiclient.ResolveProvider(opts.Model, opts.APIKey)
 	if err != nil {
-		return nil, fmt.Errorf("resolving provider: %w", err)
+		return fmt.Errorf("resolving provider: %w", err)
 	}
 	h.Model = resolvedModel
 
@@ -166,13 +175,13 @@ func New(opts Options) (*Harness, error) {
 	// 3. Tool registry
 	toolReg, err := tools.NewToolRegistry(data.ToolsJSON)
 	if err != nil {
-		return nil, fmt.Errorf("loading tool registry: %w", err)
+		return fmt.Errorf("loading tool registry: %w", err)
 	}
 
 	toolImpl := toolimpl.NewRegistry()
 
 	// 4. Register advanced tools
-	mcpMgr, cleanup := wireAdvancedTools(toolImpl, opts.HashlineEnabled, opts.MCPConfigPath)
+	mcpMgr, cleanup := wireAdvancedTools(toolImpl, h.Opts.HashlineEnabled, h.Opts.MCPConfigPath)
 	h.cleanups = append(h.cleanups, cleanup)
 	h.mcpManager = mcpMgr
 
@@ -187,7 +196,7 @@ func New(opts Options) (*Harness, error) {
 	toolImpl.Set("orchestrator_delegate_bg", &orchestratorToolAdapter{orch: orch, toolName: "orchestrator_delegate_bg"})
 
 	// 7. Skills
-	skillLoader := skills.NewSkillLoader(opts.SkillsDir)
+	skillLoader := skills.NewSkillLoader(h.Opts.SkillsDir)
 	loadedSkills, skillErrs := skillLoader.LoadAll()
 	for _, e := range skillErrs {
 		slog.Info(fmt.Sprintf("[harness/skills] %v", e))
@@ -195,32 +204,32 @@ func New(opts Options) (*Harness, error) {
 	h.skills = loadedSkills
 
 	// 8. Build system prompt
-	systemPrompt := opts.SystemPrompt
+	systemPrompt := h.Opts.SystemPrompt
 	if systemPrompt == "" {
-		systemPrompt = repl.BuildSystemPrompt(opts.WorkDir, executor.ListTools())
+		systemPrompt = repl.BuildSystemPrompt(h.Opts.WorkDir, executor.ListTools())
 	}
 
-	if opts.SkillName != "" {
-		sk, ok := skillLoader.GetSkill(opts.SkillName)
+	if h.Opts.SkillName != "" {
+		sk, ok := skillLoader.GetSkill(h.Opts.SkillName)
 		if !ok {
 			h.Close()
-			return nil, fmt.Errorf("unknown skill: %s", opts.SkillName)
+			return fmt.Errorf("unknown skill: %s", h.Opts.SkillName)
 		}
 		systemPrompt = sk.SystemPrompt + "\n\n" + systemPrompt
 	}
 
-	if len(opts.AllowedTools) > 0 {
+	if len(h.Opts.AllowedTools) > 0 {
 		systemPrompt += fmt.Sprintf("\n\n# Allowed Tools\nOnly use these tools: %s\n",
-			joinStrings(opts.AllowedTools))
+			joinStrings(h.Opts.AllowedTools))
 	}
-	if len(opts.DisallowedTools) > 0 {
+	if len(h.Opts.DisallowedTools) > 0 {
 		systemPrompt += fmt.Sprintf("\n\n# Disallowed Tools\nDo NOT use these tools: %s\n",
-			joinStrings(opts.DisallowedTools))
+			joinStrings(h.Opts.DisallowedTools))
 	}
 
 	// 9. Permission mode
 	permMode := agent.WorkspaceWrite
-	if opts.SkipPermissions {
+	if h.Opts.SkipPermissions {
 		permMode = agent.DangerFullAccess
 	}
 
@@ -229,7 +238,7 @@ func New(opts Options) (*Harness, error) {
 	_ = trustedStore.Load()
 
 	// 11. Hooks
-	pm := plugins.NewPluginManager(opts.PluginsDir)
+	pm := plugins.NewPluginManager(h.Opts.PluginsDir)
 	loadedPlugins, pluginErrs := pm.LoadAll()
 	for _, e := range pluginErrs {
 		slog.Info(fmt.Sprintf("[harness/plugins] %v", e))
@@ -237,8 +246,8 @@ func New(opts Options) (*Harness, error) {
 	hookRunner := plugins.NewPluginHookRunner(loadedPlugins)
 
 	var hooksRunner agent.HookRunner = hookRunner
-	if _, statErr := os.Stat(opts.HooksConfigPath); statErr == nil {
-		shellRunner, shellErr := hooks.NewShellHookRunner(opts.HooksConfigPath, hookRunner)
+	if _, statErr := os.Stat(h.Opts.HooksConfigPath); statErr == nil {
+		shellRunner, shellErr := hooks.NewShellHookRunner(h.Opts.HooksConfigPath, hookRunner)
 		if shellErr != nil {
 			slog.Error(fmt.Sprintf("[harness/hooks] failed to load shell hooks: %v", shellErr))
 		} else {
@@ -255,14 +264,14 @@ func New(opts Options) (*Harness, error) {
 		MaxIterations: opts.MaxTurns,
 		SystemPrompt:  systemPrompt,
 		PermMode:      permMode,
-		Prompter:      opts.Prompter,
+		Prompter:      h.Opts.Prompter,
 		Trusted:       trustedStore,
-		ToolCb:        opts.ToolCallback,
+		ToolCb:        h.Opts.ToolCallback,
 		Hooks:         hooksRunner,
 	})
 
 	h.Runtime = rt
-	return h, nil
+	return nil
 }
 
 // Run sends a pre-built message with streaming.

@@ -138,6 +138,23 @@ func (m *Models) EnsureDefaultProviders() *apiclient.ProvidersConfig {
 	return cfg
 }
 
+// FindModelProvider 返回某个模型所属的 provider 配置, 供前端展示模型来源.
+func FindModelProvider(model string) *apiclient.ProviderConfig {
+	list, err := apiclient.ListConfiguredProviders()
+	if err != nil {
+		slog.Error(fmt.Sprintf("[app] list providers failed: %v", err))
+		return nil
+	}
+	for _, p := range list {
+		for _, m := range p.Models {
+			if m == model {
+				return &p
+			}
+		}
+	}
+	return nil
+}
+
 // maskKey 与 apiclient.maskSecret 行为一致, 在 main 包中复制一份避免导出.
 func maskKey(s string) string {
 	if s == "" {

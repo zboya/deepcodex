@@ -16,7 +16,7 @@ interface MainContentProps {
   messages: ChatMessage[];
   isStreaming: boolean;
   activeProject?: Project | null;
-  onSend: (text: string, imagePaths?: string[]) => void;
+  onSend: (text: string, imagePaths?: string[], model?: string) => void;
   onStop?: () => void;
   onLinkClick?: (url: string) => void;
 }
@@ -87,6 +87,7 @@ function formatToolArgs(args: string): string {
 const MainContent: React.FC<MainContentProps> = ({ messages, isStreaming, activeProject, onSend, onStop, onLinkClick }) => {
   const [text, setText] = useState('');
   const [pendingImages, setPendingImages] = useState<string[]>([]);
+  const [currentModel, setCurrentModel] = useState('');
   const [thinkingOpen, setThinkingOpen] = useState<Record<string, boolean>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -95,7 +96,7 @@ const MainContent: React.FC<MainContentProps> = ({ messages, isStreaming, active
     const trimmed = text.trim();
     // 至少要有文本或图片之一
     if (!trimmed && pendingImages.length === 0) return;
-    onSend(trimmed, pendingImages);
+    onSend(trimmed, pendingImages, currentModel);
     setText('');
     setPendingImages([]);
   };
@@ -140,6 +141,7 @@ const MainContent: React.FC<MainContentProps> = ({ messages, isStreaming, active
             disabled={isStreaming}
             imagePaths={pendingImages}
             onChangeImagePaths={setPendingImages}
+            onModelChange={setCurrentModel}
           />
 
           <div className="connector-row">
@@ -250,6 +252,7 @@ const MainContent: React.FC<MainContentProps> = ({ messages, isStreaming, active
                 disabled={isStreaming}
                 imagePaths={pendingImages}
                 onChangeImagePaths={setPendingImages}
+                onModelChange={setCurrentModel}
                 compact
               />
             </div>

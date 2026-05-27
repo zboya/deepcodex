@@ -25,17 +25,30 @@ import { Observable } from 'rxjs';
 
 import { Events } from '@wailsio/runtime';
 import { SendMessage, StopMessage } from '../../bindings/github.com/zboya/deepcodex/app';
+import { InputMessage, ProjectEntry } from '../../bindings/github.com/zboya/deepcodex/app/models';
 
 const CHANNEL = 'agui:event';
 
 export interface WailsAgentConfig extends AgentConfig {
   /** Project ID forwarded to backend SendMessage(projectId, chatId, ...). */
   projectId?: string;
+  /** Project entry to forward to backend. */
+  project?: ProjectEntry | null;
 }
 
 export class WailsAgent extends AbstractAgent {
   /** Project the run targets; can be updated between runs. */
   projectId: string;
+
+  /** Full project entry passed to backend InputMessage.proj. */
+  project: ProjectEntry | null;
+
+  /**
+   * Model name to use for the next run. Set by the frontend before runAgent().
+   * If empty, the backend will fail to find a provider — so InputArea should
+   * always set this before submitting.
+   */
+  pendingModel: string = '';
 
   /**
    * Image paths to attach to the next outgoing user message.
@@ -49,9 +62,10 @@ export class WailsAgent extends AbstractAgent {
   private runActive = false;
   private stopRequested = false;
 
-  constructor({ projectId = '', ...rest }: WailsAgentConfig = {}) {
+  constructor({ projectId = '', project = null, ...rest }: WailsAgentConfig = {}) {
     super(rest);
     this.projectId = projectId;
+    this.project = project;
   }
 
   override abortRun() {
@@ -102,16 +116,22 @@ export class WailsAgent extends AbstractAgent {
       const imagePaths = this.pendingImagePaths;
       this.pendingImagePaths = [];
 
-      SendMessage(
-        this.projectId,
-        input.threadId, // threadId == backend chatID / sessionID
-        text,
-        imagePaths,
-        {
+      const model = this.pendingModel;
+      this.pendingModel = '';
+
+      const inputMsg = new InputMessage({
+        chat_id: input.threadId,
+        model: model,
+        user_input: text,
+        image_paths: imagePaths.length > 0 ? imagePaths : undefined,
+        proj: this.project || new ProjectEntry(),
+        send_options: {
           continueSession: false,
           resumeSessionID: input.threadId,
         },
-      ).catch((err: unknown) => {
+      });
+
+      SendMessage(inputMsg).catch((err: unknown) => {
         console.error('[WailsAgent] SendMessage rejected', err);
         this.runActive = false;
         if (!cancelled) subscriber.error(err);

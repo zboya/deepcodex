@@ -160,10 +160,11 @@ export function ListChats(projectID) {
 
 /**
  * ListMCPServers 返回默认 harness 中已配置的 MCP 服务器列表。
+ * @param {string} projectID
  * @returns {$CancellablePromise<app$0.MCPServerItem[]>}
  */
-export function ListMCPServers() {
-    return $Call.ByID(3510320173).then(/** @type {($result: any) => any} */(($result) => {
+export function ListMCPServers(projectID) {
+    return $Call.ByID(3510320173, projectID).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType9($result);
     }));
 }
@@ -215,10 +216,11 @@ export function ListSessionsForProject(projectID) {
 
 /**
  * ListSkills 返回所有可用的 Skills 列表（内置 + 用户自定义）。
+ * @param {string} projectID
  * @returns {$CancellablePromise<app$0.SkillItem[]>}
  */
-export function ListSkills() {
-    return $Call.ByID(1140726611).then(/** @type {($result: any) => any} */(($result) => {
+export function ListSkills(projectID) {
+    return $Call.ByID(1140726611, projectID).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType16($result);
     }));
 }
@@ -293,15 +295,11 @@ export function SelectImageFiles() {
 /**
  * SendMessage 发送消息（流式）
  * imagePaths 为可选的图片路径列表（前端通过 SelectImageFiles 选择得到），非空时走多模态通道。
- * @param {string} projectID
- * @param {string} chatID
- * @param {string} content
- * @param {string[]} imagePaths
- * @param {app$0.SendOptions} opts
+ * @param {app$0.InputMessage | null} input
  * @returns {$CancellablePromise<app$0.Message>}
  */
-export function SendMessage(projectID, chatID, content, imagePaths, opts) {
-    return $Call.ByID(1496882310, projectID, chatID, content, imagePaths, opts).then(/** @type {($result: any) => any} */(($result) => {
+export function SendMessage(input) {
+    return $Call.ByID(1496882310, input).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType4($result);
     }));
 }
