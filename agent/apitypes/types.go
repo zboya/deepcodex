@@ -162,7 +162,7 @@ type ImageSource struct {
 }
 
 // InputContentBlock is a union type with Kind discriminator.
-// Kind: "text", "tool_use", "tool_result", "image"
+// Kind: "text", "tool_use", "tool_result", "image", "thinking"
 type InputContentBlock struct {
 	Kind      string          `json:"type"`
 	Text      string          `json:"text,omitempty"`
@@ -173,6 +173,8 @@ type InputContentBlock struct {
 	Content   string          `json:"content,omitempty"`
 	IsError   bool            `json:"is_error,omitempty"`
 	Source    *ImageSource    `json:"source,omitempty"` // for image blocks
+	Thinking  string          `json:"thinking,omitempty"`
+	Signature string          `json:"signature,omitempty"`
 }
 
 // ToolDef is an LLM tool definition.
@@ -254,6 +256,16 @@ type StreamEvent struct {
 
 	// RawDelta captures the "delta" field for both message_delta and content_block_delta
 	RawDelta json.RawMessage `json:"delta,omitempty"`
+
+	// ToolResult carries the output of a tool execution (Kind == "tool_result").
+	ToolResult *ToolResultEvent `json:"tool_result,omitempty"`
+}
+
+// ToolResultEvent carries tool execution result details in a StreamEvent.
+type ToolResultEvent struct {
+	ToolUseID string `json:"tool_use_id"`
+	Output    string `json:"output"`
+	IsError   bool   `json:"is_error,omitempty"`
 }
 
 // UnmarshalJSON custom unmarshals to handle the shared "delta" field.

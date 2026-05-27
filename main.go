@@ -2,7 +2,9 @@ package main
 
 import (
 	"embed"
-	"log"
+	"log/slog"
+	"os"
+	"strings"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
@@ -10,7 +12,27 @@ import (
 //go:embed all:frontend/dist
 var assets embed.FS
 
+func initLogger() {
+	levelStr := strings.ToUpper(os.Getenv("DEEPCODEX_LOG_LEVEL"))
+	var level slog.Level
+	switch levelStr {
+	case "DEBUG":
+		level = slog.LevelDebug
+	case "INFO":
+		level = slog.LevelInfo
+	case "WARN", "WARNING":
+		level = slog.LevelWarn
+	case "ERROR":
+		level = slog.LevelError
+	default:
+		level = slog.LevelInfo
+	}
+	handler := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level})
+	slog.SetDefault(slog.New(handler))
+}
+
 func main() {
+	initLogger()
 	appService := NewApp()
 
 	app := application.New(application.Options{
@@ -43,6 +65,6 @@ func main() {
 	})
 
 	if err := app.Run(); err != nil {
-		log.Fatal(err)
+		slog.Error("Error running app", "err", err)
 	}
 }

@@ -64,6 +64,12 @@ const ToolCallBlock: React.FC<{ toolCall: ChatToolCall }> = ({ toolCall }) => {
       {expanded && (
         <div className="tool-call-detail">
           <pre className="tool-call-args">{formatToolArgs(toolCall.args)}</pre>
+          {toolCall.result && (
+            <>
+              <div className="tool-call-result-label">输出结果</div>
+              <pre className="tool-call-result">{toolCall.result}</pre>
+            </>
+          )}
         </div>
       )}
     </div>

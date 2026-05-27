@@ -177,6 +177,8 @@ func (a *App) GetSessionMessages(projectID string, sessionID string) []app.Messa
 // SendMessage 发送消息（流式）
 // imagePaths 为可选的图片路径列表（前端通过 SelectImageFiles 选择得到），非空时走多模态通道。
 func (a *App) SendMessage(projectID string, chatID string, content string, imagePaths []string, opts app.SendOptions) app.Message {
+	// Check if model has changed and reinitialize harness if needed
+	a.ensureActiveModel(projectID)
 	return a.getChat(projectID).SendMessage(chatID, content, imagePaths, opts)
 }
 
@@ -201,6 +203,57 @@ func (a *App) Close() {
 }
 
 // ─── MCP & Skills 接口 ──────────────────────────────────────────────────────
+
+// ensureActiveModel checks if the active provider/model in config differs from
+// the current harness's model. If so, it reinitializes the harness.
+func (a *App) ensureActiveModel(projectID string) {
+	// Resolve what the user currently has selected
+	cfg, err := apiclient.LoadProvidersConfig()
+	if err != nil || cfg == nil {
+		return
+	}
+
+	var wantModel string
+	if pc, ok := cfg.ResolveActiveProvider(); ok && pc.DefaultModel != "" {
+		wantModel = pc.DefaultModel
+	}
+	if wantModel == "" {
+		return
+	}
+
+	if projectID == "" {
+		// Default harness path
+		if a.defaultHarness != nil && a.defaultHarness.Model == wantModel {
+			return
+		}
+		slog.Info(fmt.Sprintf("[app] model changed, reinitializing default harness: %s -> %s",
+			a.defaultHarness.Model, wantModel))
+		h, err := harness.New(harness.Options{
+			Model:           wantModel,
+			SkipPermissions: true,
+			MaxTurns:        30,
+		})
+		if err != nil {
+			slog.Error(fmt.Sprintf("[app] failed to reinitialize default harness: %v", err))
+			return
+		}
+		if a.defaultHarness != nil {
+			a.defaultHarness.Close()
+		}
+		a.defaultHarness = h
+		a.defaultChat = app.NewChat(a.ctx, h)
+		slog.Info(fmt.Sprintf("[app] default harness reinitialized, model=%s", h.Model))
+	} else {
+		// Project harness path
+		a.chatMu.RLock()
+		c, ok := a.projectChats[projectID]
+		a.chatMu.RUnlock()
+		if !ok {
+			return // will be lazily created with correct model
+		}
+		_ = c // project chats use their own harness; for now skip dynamic switching
+	}
+}
 
 // ListMCPServers 返回默认 harness 中已配置的 MCP 服务器列表。
 func (a *App) ListMCPServers() []app.MCPServerItem {

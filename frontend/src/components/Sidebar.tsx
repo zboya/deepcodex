@@ -135,7 +135,9 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
   onLoadSessions,
   onNewSession,
 }) => {
-  const [open, setOpen] = useState(false);
+  // null = 用户未手动操作过，跟随 isActive/containsActive 自动展开
+  // true/false = 用户手动设置了展开/折叠状态
+  const [manualOpen, setManualOpen] = useState<boolean | null>(null);
   const [hovering, setHovering] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -145,11 +147,13 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
 
   // 当本项目被选中、或当前 activeChatId 属于本项目，自动展开会话列表
   const containsActive = !!activeChatId && sessions.some((s) => s.id === activeChatId);
-  const effectiveOpen = open || isActive || containsActive;
+  // 用户手动操作优先；否则根据 isActive/containsActive 自动展开
+  const effectiveOpen = manualOpen !== null ? manualOpen : (isActive || containsActive);
 
-  // 项目变为激活但还没拉过 sessions 时，主动加载一次
+  // 项目变为激活但还没拉过 sessions 时，主动加载一次；同时重置手动状态以自动展开
   React.useEffect(() => {
     if (isActive) {
+      setManualOpen(null); // 切换项目时重置，让自动展开生效
       onLoadSessions();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -170,7 +174,7 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
 
   const handleToggle = () => {
     const next = !effectiveOpen;
-    setOpen(next);
+    setManualOpen(next);
     if (next) {
       onLoadSessions();
     }

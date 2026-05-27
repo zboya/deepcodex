@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"strings"
@@ -75,6 +76,15 @@ func (p *OpenAiCompatProvider) SendMessage(ctx context.Context, req apitypes.Mes
 	if msgResp.RequestID == "" {
 		msgResp.RequestID = requestID
 	}
+	// Debug log: print non-streaming response
+	if respJSON, err := json.Marshal(msgResp); err == nil {
+		slog.Debug("[OpenAiCompat] SendMessage response",
+			"provider", p.Config.ProviderName,
+			"model", req.Model,
+			"request_id", requestID,
+			"response", string(respJSON),
+		)
+	}
 	return msgResp, nil
 }
 
@@ -92,6 +102,12 @@ func (p *OpenAiCompatProvider) StreamMessage(ctx context.Context, req apitypes.M
 		state := newStreamState(req.Model)
 		parser := newOpenAiSseParser()
 		buf := make([]byte, 4096)
+
+		// Aggregation for debug logging
+		var aggText strings.Builder
+		var aggThinking strings.Builder
+		var aggToolCalls []map[string]string
+
 		for {
 			n, readErr := resp.Body.Read(buf)
 			if n > 0 {
@@ -100,6 +116,29 @@ func (p *OpenAiCompatProvider) StreamMessage(ctx context.Context, req apitypes.M
 					return
 				}
 				for _, chunk := range chunks {
+					// Aggregate content for debug logging
+					for _, choice := range chunk.Choices {
+						if choice.Delta.Content != "" {
+							aggText.WriteString(choice.Delta.Content)
+						}
+						if choice.Delta.ReasoningContent != "" {
+							aggThinking.WriteString(choice.Delta.ReasoningContent)
+						}
+						for _, tc := range choice.Delta.ToolCalls {
+							// Ensure slice is large enough
+							for len(aggToolCalls) <= tc.Index {
+								aggToolCalls = append(aggToolCalls, map[string]string{"id": "", "name": "", "arguments": ""})
+							}
+							if tc.ID != "" {
+								aggToolCalls[tc.Index]["id"] = tc.ID
+							}
+							if tc.Function.Name != "" {
+								aggToolCalls[tc.Index]["name"] = tc.Function.Name
+							}
+							aggToolCalls[tc.Index]["arguments"] += tc.Function.Arguments
+						}
+					}
+
 					events := state.ingestChunk(chunk)
 					for _, ev := range events {
 						select {
@@ -118,6 +157,26 @@ func (p *OpenAiCompatProvider) StreamMessage(ctx context.Context, req apitypes.M
 						return
 					}
 				}
+				// Debug log: print aggregated stream result
+				logAttrs := []any{
+					"provider", p.Config.ProviderName,
+					"model", req.Model,
+				}
+				if aggText.Len() > 0 {
+					logAttrs = append(logAttrs, "text", aggText.String())
+				}
+				if aggThinking.Len() > 0 {
+					logAttrs = append(logAttrs, "thinking", aggThinking.String())
+				}
+				if len(aggToolCalls) > 0 {
+					if tcJSON, err := json.Marshal(aggToolCalls); err == nil {
+						logAttrs = append(logAttrs, "tool_calls", string(tcJSON))
+					}
+				}
+				if state.usage != nil {
+					logAttrs = append(logAttrs, "input_tokens", state.usage.InputTokens, "output_tokens", state.usage.OutputTokens)
+				}
+				slog.Debug("[OpenAiCompat] StreamMessage aggregated result", logAttrs...)
 				return
 			}
 		}
@@ -167,6 +226,16 @@ func (p *OpenAiCompatProvider) sendRaw(ctx context.Context, req apitypes.Message
 	if err != nil {
 		return nil, apitypes.WrapJson(err)
 	}
+
+	// Debug log: print request
+	slog.Debug("[OpenAiCompat] sendRaw request",
+		"provider", p.Config.ProviderName,
+		"model", req.Model,
+		"stream", req.Stream,
+		"url", chatCompletionsEndpoint(p.BaseURL),
+		"body", string(body),
+	)
+
 	url := chatCompletionsEndpoint(p.BaseURL)
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
 	if err != nil {
@@ -238,11 +307,14 @@ func usesMaxCompletionTokens(model string) bool {
 func translateMessage(msg apitypes.InputMessage) []map[string]interface{} {
 	if msg.Role == "assistant" {
 		var text string
+		var reasoningContent string
 		var toolCalls []map[string]interface{}
 		for _, block := range msg.Content {
 			switch block.Kind {
 			case "text":
 				text += block.Text
+			case "thinking":
+				reasoningContent += block.Thinking
 			case "tool_use":
 				toolCalls = append(toolCalls, map[string]interface{}{
 					"id":   block.ID,
@@ -255,6 +327,9 @@ func translateMessage(msg apitypes.InputMessage) []map[string]interface{} {
 			}
 		}
 		m := map[string]interface{}{"role": "assistant"}
+		if reasoningContent != "" {
+			m["reasoning_content"] = reasoningContent
+		}
 		if text != "" {
 			m["content"] = text
 		}
@@ -340,9 +415,10 @@ type chatChoice struct {
 }
 
 type chatMessage struct {
-	Role      string             `json:"role"`
-	Content   string             `json:"content,omitempty"`
-	ToolCalls []responseToolCall `json:"tool_calls,omitempty"`
+	Role             string             `json:"role"`
+	Content          string             `json:"content,omitempty"`
+	ReasoningContent string             `json:"reasoning_content,omitempty"`
+	ToolCalls        []responseToolCall `json:"tool_calls,omitempty"`
 }
 
 type responseToolCall struct {
@@ -366,6 +442,9 @@ func normalizeResponse(model string, resp chatCompletionResponse) (*apitypes.Mes
 	}
 	choice := resp.Choices[0]
 	var content []apitypes.OutputContentBlock
+	if choice.Message.ReasoningContent != "" {
+		content = append(content, apitypes.OutputContentBlock{Kind: "thinking", Thinking: choice.Message.ReasoningContent})
+	}
 	if choice.Message.Content != "" {
 		content = append(content, apitypes.OutputContentBlock{Kind: "text", Text: choice.Message.Content})
 	}
@@ -478,8 +557,9 @@ type chunkChoice struct {
 }
 
 type chunkDelta struct {
-	Content   string          `json:"content,omitempty"`
-	ToolCalls []deltaToolCall `json:"tool_calls,omitempty"`
+	Content          string          `json:"content,omitempty"`
+	ReasoningContent string          `json:"reasoning_content,omitempty"`
+	ToolCalls        []deltaToolCall `json:"tool_calls,omitempty"`
 }
 
 type deltaToolCall struct {
@@ -494,13 +574,14 @@ type deltaFunction struct {
 }
 
 type streamState struct {
-	model          string
-	messageStarted bool
-	textStarted    bool
-	finished       bool
-	stopReason     string
-	usage          *apitypes.Usage
-	toolCalls      map[int]*toolCallState
+	model           string
+	messageStarted  bool
+	thinkingStarted bool
+	textStarted     bool
+	finished        bool
+	stopReason      string
+	usage           *apitypes.Usage
+	toolCalls       map[int]*toolCallState
 }
 
 type toolCallState struct {
@@ -534,17 +615,43 @@ func (s *streamState) ingestChunk(chunk chatCompletionChunk) []apitypes.StreamEv
 	if chunk.Usage != nil {
 		s.usage = &apitypes.Usage{InputTokens: chunk.Usage.PromptTokens, OutputTokens: chunk.Usage.CompletionTokens}
 	}
+
+	// Compute index offset: when thinking is active, text shifts to 1 and tools shift by 2
+	textIdx := 0
+	toolOffset := 1
+	if s.thinkingStarted {
+		textIdx = 1
+		toolOffset = 2
+	}
+
 	for _, choice := range chunk.Choices {
-		if choice.Delta.Content != "" {
-			if !s.textStarted {
-				s.textStarted = true
+		// Handle reasoning_content (DeepSeek thinking mode)
+		if choice.Delta.ReasoningContent != "" {
+			if !s.thinkingStarted {
+				s.thinkingStarted = true
+				textIdx = 1
+				toolOffset = 2
 				events = append(events, apitypes.StreamEvent{
 					Kind: "content_block_start", Index: 0,
-					ContentBlock: &apitypes.OutputContentBlock{Kind: "text"},
+					ContentBlock: &apitypes.OutputContentBlock{Kind: "thinking"},
 				})
 			}
 			events = append(events, apitypes.StreamEvent{
 				Kind: "content_block_delta", Index: 0,
+				BlockDelta: &apitypes.ContentBlockDelta{Kind: "thinking_delta", Thinking: choice.Delta.ReasoningContent},
+			})
+		}
+
+		if choice.Delta.Content != "" {
+			if !s.textStarted {
+				s.textStarted = true
+				events = append(events, apitypes.StreamEvent{
+					Kind: "content_block_start", Index: textIdx,
+					ContentBlock: &apitypes.OutputContentBlock{Kind: "text"},
+				})
+			}
+			events = append(events, apitypes.StreamEvent{
+				Kind: "content_block_delta", Index: textIdx,
 				BlockDelta: &apitypes.ContentBlockDelta{Kind: "text_delta", Text: choice.Delta.Content},
 			})
 		}
@@ -561,7 +668,7 @@ func (s *streamState) ingestChunk(chunk chatCompletionChunk) []apitypes.StreamEv
 				st.name = tc.Function.Name
 			}
 			st.arguments += tc.Function.Arguments
-			blockIdx := tc.Index + 1
+			blockIdx := tc.Index + toolOffset
 			if !st.started && st.name != "" {
 				st.started = true
 				events = append(events, apitypes.StreamEvent{
@@ -581,7 +688,7 @@ func (s *streamState) ingestChunk(chunk chatCompletionChunk) []apitypes.StreamEv
 			for _, st := range s.toolCalls {
 				if st.started && !st.stopped {
 					st.stopped = true
-					events = append(events, apitypes.StreamEvent{Kind: "content_block_stop", Index: st.index + 1})
+					events = append(events, apitypes.StreamEvent{Kind: "content_block_stop", Index: st.index + toolOffset})
 				}
 			}
 		}
@@ -595,13 +702,24 @@ func (s *streamState) finish() []apitypes.StreamEvent {
 	}
 	s.finished = true
 	var events []apitypes.StreamEvent
-	if s.textStarted {
+
+	toolOffset := 1
+	if s.thinkingStarted {
+		toolOffset = 2
 		events = append(events, apitypes.StreamEvent{Kind: "content_block_stop", Index: 0})
+	}
+
+	if s.textStarted {
+		textIdx := 0
+		if s.thinkingStarted {
+			textIdx = 1
+		}
+		events = append(events, apitypes.StreamEvent{Kind: "content_block_stop", Index: textIdx})
 	}
 	for _, st := range s.toolCalls {
 		if st.started && !st.stopped {
 			st.stopped = true
-			events = append(events, apitypes.StreamEvent{Kind: "content_block_stop", Index: st.index + 1})
+			events = append(events, apitypes.StreamEvent{Kind: "content_block_stop", Index: st.index + toolOffset})
 		}
 	}
 	if s.messageStarted {

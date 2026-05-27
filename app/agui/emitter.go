@@ -180,6 +180,12 @@ func (e *Emitter) ToolCallEnd(blockIndex int) {
 	e.emit(aguievents.NewToolCallEndEvent(id))
 }
 
+// ToolCallResult emits a TOOL_CALL_RESULT event with the tool's output.
+func (e *Emitter) ToolCallResult(toolCallID, content string) {
+	msgID := aguievents.GenerateMessageID()
+	e.emit(aguievents.NewToolCallResultEvent(msgID, toolCallID, content))
+}
+
 // Custom emits a CUSTOM event (e.g. for token usage statistics).
 func (e *Emitter) Custom(name string, value any) {
 	e.emit(aguievents.NewCustomEvent(name, aguievents.WithValue(value)))
@@ -256,6 +262,10 @@ func (e *Emitter) Translate(ev apitypes.StreamEvent) {
 			e.ToolCallEnd(ev.Index)
 		} else {
 			e.closeText()
+		}
+	case "tool_result":
+		if ev.ToolResult != nil {
+			e.ToolCallResult(ev.ToolResult.ToolUseID, ev.ToolResult.Output)
 		}
 	}
 }

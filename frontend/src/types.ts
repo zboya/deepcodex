@@ -19,6 +19,8 @@ export interface ChatToolCall {
   name: string;
   /** 流式拼接中的 JSON 参数字符串 */
   args: string;
+  /** 工具执行结果 */
+  result?: string;
 }
 
 export interface ChatMessage {

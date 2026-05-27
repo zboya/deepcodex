@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 
 	"github.com/zboya/deepcodex/agent/apiclient"
 	"github.com/zboya/deepcodex/agent/apitypes"
@@ -121,6 +122,10 @@ func (r *ConversationRuntime) sendLoop(ctx context.Context) (*apitypes.MessageRe
 					Kind: "tool_use", ID: block.ID, Name: block.Name, Input: block.Input,
 				})
 				pendingTools = append(pendingTools, toolUseInfo{id: block.ID, name: block.Name, input: block.Input})
+			case "thinking":
+				assistantMsg.Content = append(assistantMsg.Content, apitypes.InputContentBlock{
+					Kind: "thinking", Thinking: block.Thinking, Signature: block.Signature,
+				})
 			}
 		}
 		r.session = append(r.session, assistantMsg)
@@ -166,9 +171,25 @@ func (r *ConversationRuntime) streamLoop(ctx context.Context) (<-chan apitypes.S
 	go func() {
 		defer close(outCh)
 		for iteration := 0; iteration < r.maxIter; iteration++ {
+			slog.Debug("streamLoop: starting iteration",
+				"iteration", iteration,
+				"maxIter", r.maxIter,
+				"sessionLen", len(r.session),
+				"model", r.model,
+			)
 			req := r.buildRequest()
+			slog.Debug("streamLoop: sending stream request",
+				"iteration", iteration,
+				"messagesCount", len(req.Messages),
+				"toolsCount", len(req.Tools),
+				"systemPromptLen", len(req.System),
+			)
 			eventCh, err := r.provider.StreamMessage(ctx, req)
 			if err != nil {
+				slog.Debug("streamLoop: StreamMessage error",
+					"iteration", iteration,
+					"error", err.Error(),
+				)
 				// Send an error event so the REPL can display it
 				outCh <- apitypes.StreamEvent{
 					Kind: "error",
@@ -184,17 +205,30 @@ func (r *ConversationRuntime) streamLoop(ctx context.Context) (<-chan apitypes.S
 			var contentBlocks []apitypes.OutputContentBlock
 			var pendingTools []toolUseInfo
 			var currentUsage apitypes.Usage
+			var eventCount int
 
 			for ev := range eventCh {
+				eventCount++
 				select {
 				case outCh <- ev:
 				case <-ctx.Done():
+					slog.Debug("streamLoop: context cancelled during event forwarding",
+						"iteration", iteration,
+						"eventCount", eventCount,
+					)
 					return
 				}
 				// Track content blocks from stream events
 				switch ev.Kind {
 				case "content_block_start":
 					if ev.ContentBlock != nil {
+						slog.Debug("streamLoop: content_block_start",
+							"iteration", iteration,
+							"index", ev.Index,
+							"blockKind", ev.ContentBlock.Kind,
+							"blockID", ev.ContentBlock.ID,
+							"blockName", ev.ContentBlock.Name,
+						)
 						// Ensure contentBlocks is large enough for the index
 						for len(contentBlocks) <= ev.Index {
 							contentBlocks = append(contentBlocks, apitypes.OutputContentBlock{})
@@ -213,14 +247,31 @@ func (r *ConversationRuntime) streamLoop(ctx context.Context) (<-chan apitypes.S
 							block.Text += ev.BlockDelta.Text
 						case "input_json_delta":
 							block.Input = appendJSON(block.Input, ev.BlockDelta.PartialJSON)
+						case "thinking_delta":
+							block.Thinking += ev.BlockDelta.Thinking
+						case "signature_delta":
+							block.Signature += ev.BlockDelta.Signature
 						}
 					}
 				case "message_delta":
 					if ev.DeltaUsage != nil {
 						currentUsage = *ev.DeltaUsage
+						slog.Debug("streamLoop: message_delta usage",
+							"iteration", iteration,
+							"inputTokens", currentUsage.InputTokens,
+							"outputTokens", currentUsage.OutputTokens,
+						)
 					}
 				}
 			}
+
+			slog.Debug("streamLoop: stream finished",
+				"iteration", iteration,
+				"eventCount", eventCount,
+				"contentBlocksCount", len(contentBlocks),
+				"inputTokens", currentUsage.InputTokens,
+				"outputTokens", currentUsage.OutputTokens,
+			)
 
 			r.usage.Add(currentUsage)
 
@@ -229,25 +280,84 @@ func (r *ConversationRuntime) streamLoop(ctx context.Context) (<-chan apitypes.S
 			for _, block := range contentBlocks {
 				switch block.Kind {
 				case "text":
+					slog.Debug("streamLoop: assistant text block",
+						"iteration", iteration,
+						"textLen", len(block.Text),
+					)
 					assistantMsg.Content = append(assistantMsg.Content, apitypes.InputContentBlock{Kind: "text", Text: block.Text})
 				case "tool_use":
+					slog.Debug("streamLoop: assistant tool_use block",
+						"iteration", iteration,
+						"toolID", block.ID,
+						"toolName", block.Name,
+						"inputLen", len(block.Input),
+					)
 					assistantMsg.Content = append(assistantMsg.Content, apitypes.InputContentBlock{
 						Kind: "tool_use", ID: block.ID, Name: block.Name, Input: block.Input,
 					})
 					pendingTools = append(pendingTools, toolUseInfo{id: block.ID, name: block.Name, input: block.Input})
+				case "thinking":
+					slog.Debug("streamLoop: assistant thinking block",
+						"iteration", iteration,
+						"thinkingLen", len(block.Thinking),
+						"hasSignature", block.Signature != "",
+					)
+					assistantMsg.Content = append(assistantMsg.Content, apitypes.InputContentBlock{
+						Kind: "thinking", Thinking: block.Thinking, Signature: block.Signature,
+					})
 				}
 			}
 			r.session = append(r.session, assistantMsg)
 
+			slog.Debug("streamLoop: assistant message built",
+				"iteration", iteration,
+				"contentBlocks", len(assistantMsg.Content),
+				"pendingTools", len(pendingTools),
+			)
+
 			if len(pendingTools) == 0 {
+				slog.Debug("streamLoop: no pending tools, finishing",
+					"iteration", iteration,
+				)
 				return
 			}
 
-			for _, tu := range pendingTools {
+			for i, tu := range pendingTools {
+				slog.Debug("streamLoop: executing tool",
+					"iteration", iteration,
+					"toolIndex", i,
+					"toolID", tu.id,
+					"toolName", tu.name,
+					"input", string(tu.input),
+				)
 				result := r.executeTool(tu)
+				slog.Debug("streamLoop: tool executed",
+					"iteration", iteration,
+					"toolName", tu.name,
+					"isError", result.IsError,
+					"output", result.Output,
+				)
 				r.session = append(r.session, apitypes.UserToolResult(tu.id, result.Output, result.IsError))
+				// Emit tool result event so the frontend can display the output
+				select {
+				case outCh <- apitypes.StreamEvent{
+					Kind: "tool_result",
+					ToolResult: &apitypes.ToolResultEvent{
+						ToolUseID: tu.id,
+						Output:    result.Output,
+						IsError:   result.IsError,
+					},
+				}:
+				case <-ctx.Done():
+					slog.Debug("streamLoop: context cancelled during tool result emit",
+						"iteration", iteration,
+						"toolName", tu.name,
+					)
+					return
+				}
 			}
 		}
+		slog.Debug("streamLoop: max iterations reached", "maxIter", r.maxIter)
 	}()
 	return outCh, nil
 }

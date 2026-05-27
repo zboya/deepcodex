@@ -334,7 +334,17 @@ function chatMessagesToAGUI(msgs: ChatMessage[]): AGUIMessage[] {
 
 function aguiMessagesToChat(msgs: readonly AGUIMessage[]): ChatMessage[] {
   const out: ChatMessage[] = [];
+  // Collect tool results indexed by toolCallId for attaching to assistant messages
+  const toolResults = new Map<string, string>();
   for (const m of msgs) {
+    if ((m as any).role === 'tool') {
+      const toolCallId = (m as any).toolCallId;
+      const content = typeof m.content === 'string' ? m.content : '';
+      if (toolCallId) {
+        toolResults.set(toolCallId, content);
+      }
+      continue;
+    }
     if (m.role !== 'user' && m.role !== 'assistant') continue;
     const content = typeof m.content === 'string' ? m.content : '';
     const item: ChatMessage = {
@@ -351,6 +361,7 @@ function aguiMessagesToChat(msgs: readonly AGUIMessage[]): ChatMessage[] {
           id: t.id,
           name: t.function?.name ?? '',
           args: t.function?.arguments ?? '',
+          result: toolResults.get(t.id),
         }));
       }
     }
