@@ -139,7 +139,9 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
   const [hovering, setHovering] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const menuRef = React.useRef<HTMLDivElement>(null);
+  const menuBtnRef = React.useRef<HTMLButtonElement>(null);
 
   // 当本项目被选中、或当前 activeChatId 属于本项目，自动展开会话列表
   const containsActive = !!activeChatId && sessions.some((s) => s.id === activeChatId);
@@ -217,16 +219,25 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
             {/* 更多菜单按钮 */}
             <div className="proj-menu-wrapper" ref={menuRef}>
               <button
+                ref={menuBtnRef}
                 className={`proj-action-btn ${menuOpen ? 'active' : ''}`}
                 title="更多操作"
-                onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); setConfirmDelete(false); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!menuOpen && menuBtnRef.current) {
+                    const rect = menuBtnRef.current.getBoundingClientRect();
+                    setMenuPos({ top: rect.bottom + 4, left: rect.left });
+                  }
+                  setMenuOpen(!menuOpen);
+                  setConfirmDelete(false);
+                }}
               >
                 <MoreDotsIcon size={14} />
               </button>
 
-              {/* 下拉菜单 */}
+              {/* 下拉菜单 - fixed 定位避免 overflow 遮挡 */}
               {menuOpen && (
-                <div className="proj-dropdown-menu">
+                <div className="proj-dropdown-menu" style={{ position: 'fixed', top: menuPos.top, left: menuPos.left }}>
                   <button className="proj-menu-item" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); /* 置顶暂为占位 */ }}>
                     <PinIcon size={13} />
                     <span>置顶项目</span>
