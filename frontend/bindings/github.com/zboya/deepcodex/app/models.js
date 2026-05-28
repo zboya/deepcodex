@@ -7,6 +7,103 @@
 import { Create as $Create } from "@wailsio/runtime";
 
 /**
+ * AGUIAttachment is the subset of CopilotKit / AG-UI input content parts that
+ * deepcodex can forward to the harness. Today only images are converted into
+ * multimodal LLM blocks; other modalities are ignored by buildInputMessage.
+ */
+export class AGUIAttachment {
+    /**
+     * Creates a new AGUIAttachment instance.
+     * @param {Partial<AGUIAttachment>} [$$source = {}] - The source object to create the AGUIAttachment.
+     */
+    constructor($$source = {}) {
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["type"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {AGUIInputSource | undefined}
+             */
+            this["source"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {{ [_ in string]?: any } | undefined}
+             */
+            this["metadata"] = undefined;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new AGUIAttachment instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {AGUIAttachment}
+     */
+    static createFrom($$source = {}) {
+        const $$createField1_0 = $$createType0;
+        const $$createField2_0 = $$createType1;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("source" in $$parsedSource) {
+            $$parsedSource["source"] = $$createField1_0($$parsedSource["source"]);
+        }
+        if ("metadata" in $$parsedSource) {
+            $$parsedSource["metadata"] = $$createField2_0($$parsedSource["metadata"]);
+        }
+        return new AGUIAttachment(/** @type {Partial<AGUIAttachment>} */($$parsedSource));
+    }
+}
+
+export class AGUIInputSource {
+    /**
+     * Creates a new AGUIInputSource instance.
+     * @param {Partial<AGUIInputSource>} [$$source = {}] - The source object to create the AGUIInputSource.
+     */
+    constructor($$source = {}) {
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["type"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["value"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["mimeType"] = undefined;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new AGUIInputSource instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {AGUIInputSource}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new AGUIInputSource(/** @type {Partial<AGUIInputSource>} */($$parsedSource));
+    }
+}
+
+/**
  * ChatItem 对话条目
  */
 export class ChatItem {
@@ -98,6 +195,13 @@ export class InputMessage {
         if (/** @type {any} */(false)) {
             /**
              * @member
+             * @type {AGUIAttachment[] | undefined}
+             */
+            this["attachments"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
              * @type {ProjectEntry | undefined}
              */
             this["proj"] = undefined;
@@ -119,18 +223,22 @@ export class InputMessage {
      * @returns {InputMessage}
      */
     static createFrom($$source = {}) {
-        const $$createField3_0 = $$createType0;
-        const $$createField4_0 = $$createType1;
-        const $$createField5_0 = $$createType2;
+        const $$createField3_0 = $$createType2;
+        const $$createField4_0 = $$createType4;
+        const $$createField5_0 = $$createType5;
+        const $$createField6_0 = $$createType6;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("image_paths" in $$parsedSource) {
             $$parsedSource["image_paths"] = $$createField3_0($$parsedSource["image_paths"]);
         }
+        if ("attachments" in $$parsedSource) {
+            $$parsedSource["attachments"] = $$createField4_0($$parsedSource["attachments"]);
+        }
         if ("proj" in $$parsedSource) {
-            $$parsedSource["proj"] = $$createField4_0($$parsedSource["proj"]);
+            $$parsedSource["proj"] = $$createField5_0($$parsedSource["proj"]);
         }
         if ("send_options" in $$parsedSource) {
-            $$parsedSource["send_options"] = $$createField5_0($$parsedSource["send_options"]);
+            $$parsedSource["send_options"] = $$createField6_0($$parsedSource["send_options"]);
         }
         return new InputMessage(/** @type {Partial<InputMessage>} */($$parsedSource));
     }
@@ -204,7 +312,7 @@ export class MCPServerItem {
      * @returns {MCPServerItem}
      */
     static createFrom($$source = {}) {
-        const $$createField5_0 = $$createType0;
+        const $$createField5_0 = $$createType2;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("toolNames" in $$parsedSource) {
             $$parsedSource["toolNames"] = $$createField5_0($$parsedSource["toolNames"]);
@@ -408,7 +516,7 @@ export class SkillItem {
      * @returns {SkillItem}
      */
     static createFrom($$source = {}) {
-        const $$createField3_0 = $$createType0;
+        const $$createField3_0 = $$createType2;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("toolPerms" in $$parsedSource) {
             $$parsedSource["toolPerms"] = $$createField3_0($$parsedSource["toolPerms"]);
@@ -418,6 +526,10 @@ export class SkillItem {
 }
 
 // Private type creation functions
-const $$createType0 = $Create.Array($Create.Any);
-const $$createType1 = ProjectEntry.createFrom;
-const $$createType2 = SendOptions.createFrom;
+const $$createType0 = AGUIInputSource.createFrom;
+const $$createType1 = $Create.Map($Create.Any, $Create.Any);
+const $$createType2 = $Create.Array($Create.Any);
+const $$createType3 = AGUIAttachment.createFrom;
+const $$createType4 = $Create.Array($$createType3);
+const $$createType5 = ProjectEntry.createFrom;
+const $$createType6 = SendOptions.createFrom;

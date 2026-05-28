@@ -1,26 +1,21 @@
 /**
- * WailsAgent — adapter that lets the official AG-UI client SDK consume our
- * Wails-event-based transport.
+ * WailsAgent adapts deepcodex's Wails event transport to the official AG-UI
+ * AbstractAgent interface used by CopilotKit.
  *
- * The deepcodex backend translates harness streaming events into AG-UI events
- * and emits them on a single Wails event channel ("agui:event"). This class
- * subclasses AbstractAgent from @ag-ui/client and implements its `run()`
- * method by:
- *   1. Subscribing to `agui:event` and pushing decoded events into an RxJS
- *      Observable<BaseEvent>.
- *   2. Triggering the backend run via the existing Wails-bound `SendMessage`
- *      method (so we don't have to invent a new RPC just to start a run).
- *   3. Completing the observable on RUN_FINISHED / RUN_ERROR and unwiring
- *      the Wails listener on teardown.
- *
- * This keeps every UI consumer that talks to AbstractAgent (CopilotKit,
- * `agent.runAgent(...)`, `agent.subscribe(...)`, etc.) fully reusable, and
- * the day we want to switch to HTTP+SSE we only swap this class for
- * `HttpAgent` from @ag-ui/client.
+ * The backend already emits standard AG-UI events on the Wails event channel
+ * `agui:event`, so the frontend can use CopilotKit's official chat UI without
+ * introducing an HTTP runtime. This class only owns the transport bridge and
+ * a little bit of deepcodex-specific metadata (project/model selection).
  */
 
 import { AbstractAgent, type AgentConfig } from '@ag-ui/client';
-import { EventType, type BaseEvent, type RunAgentInput } from '@ag-ui/core';
+import {
+  EventType,
+  type BaseEvent,
+  type InputContent,
+  type Message,
+  type RunAgentInput,
+} from '@ag-ui/core';
 import { Observable } from 'rxjs';
 
 import { Events } from '@wailsio/runtime';
@@ -30,42 +25,66 @@ import { InputMessage, ProjectEntry } from '../../bindings/github.com/zboya/deep
 const CHANNEL = 'agui:event';
 
 export interface WailsAgentConfig extends AgentConfig {
-  /** Project ID forwarded to backend SendMessage(projectId, chatId, ...). */
+  /** Project ID forwarded to backend StopMessage. */
   projectId?: string;
-  /** Project entry to forward to backend. */
+  /** Project entry forwarded to backend InputMessage.proj. */
   project?: ProjectEntry | null;
+  /** Model used for new runs. Can be changed at runtime by setModel(). */
+  model?: string;
 }
 
+type AttachmentPayload = {
+  type: string;
+  source?: {
+    type: 'data' | 'url';
+    value: string;
+    mimeType?: string;
+  };
+  metadata?: Record<string, unknown>;
+};
+
 export class WailsAgent extends AbstractAgent {
+  private configSnapshot: WailsAgentConfig;
+
   /** Project the run targets; can be updated between runs. */
   projectId: string;
 
   /** Full project entry passed to backend InputMessage.proj. */
   project: ProjectEntry | null;
 
-  /**
-   * Model name to use for the next run. Set by the frontend before runAgent().
-   * If empty, the backend will fail to find a provider — so InputArea should
-   * always set this before submitting.
-   */
-  pendingModel: string = '';
-
-  /**
-   * Image paths to attach to the next outgoing user message.
-   * The frontend (InputArea) lets the user pick image files via the native
-   * file dialog (triggered by typing `@`); the resulting absolute paths are
-   * stored here and forwarded to the backend on the next `runAgent()` call.
-   * Cleared automatically once consumed.
-   */
-  pendingImagePaths: string[] = [];
+  /** Model name used for subsequent runs. */
+  private model: string;
 
   private runActive = false;
   private stopRequested = false;
 
-  constructor({ projectId = '', project = null, ...rest }: WailsAgentConfig = {}) {
+  constructor({ projectId = '', project = null, model = '', ...rest }: WailsAgentConfig = {}) {
     super(rest);
+    this.configSnapshot = { ...rest, projectId, project, model };
     this.projectId = projectId;
     this.project = project;
+    this.model = model;
+  }
+
+  setProject(projectId: string, project: ProjectEntry | null) {
+    this.projectId = projectId;
+    this.project = project;
+    this.configSnapshot = { ...this.configSnapshot, projectId, project };
+  }
+
+  setModel(model: string) {
+    this.model = model;
+    this.configSnapshot = { ...this.configSnapshot, model };
+  }
+
+  override clone() {
+    const next = new WailsAgent(this.configSnapshot);
+    next.projectId = this.projectId;
+    next.project = this.project;
+    next.model = this.model;
+    next.setMessages([...this.messages]);
+    next.setState({ ...this.state });
+    return next;
   }
 
   override abortRun() {
@@ -79,8 +98,8 @@ export class WailsAgent extends AbstractAgent {
   }
 
   /**
-   * Implements the abstract `run` from AbstractAgent. Wires a Wails listener,
-   * triggers the backend send, and forwards decoded events into the SDK.
+   * Implements AbstractAgent.run by wiring Wails events into the AG-UI stream
+   * and kicking off the backend through the existing Wails-bound SendMessage.
    */
   run(input: RunAgentInput): Observable<BaseEvent> {
     return new Observable<BaseEvent>((subscriber) => {
@@ -88,7 +107,6 @@ export class WailsAgent extends AbstractAgent {
       this.runActive = true;
       this.stopRequested = false;
 
-      // 1. Listen for AG-UI events flowing back from the backend.
       const off = Events.On(CHANNEL, (event) => {
         if (cancelled) return;
         const evt = decodeEvent(event.data);
@@ -103,27 +121,16 @@ export class WailsAgent extends AbstractAgent {
         }
       });
 
-      // 2. Kick off the backend run. We pass the latest user message as the
-      //    payload, because the existing SendMessage signature expects a
-      //    plain string. AbstractAgent has already pushed the user message
-      //    into `input.messages` for us.
       const lastUser = [...input.messages].reverse()
-        .find((m) => m.role === 'user');
-      const text = typeof lastUser?.content === 'string' ? lastUser.content : '';
-
-      // Snapshot & clear pending images so concurrent typing won't leak
-      // attachments into a subsequent run.
-      const imagePaths = this.pendingImagePaths;
-      this.pendingImagePaths = [];
-
-      const model = this.pendingModel;
-      this.pendingModel = '';
+        .find((m) => m.role === 'user') as Message | undefined;
+      const { text, imagePaths, attachments } = normalizeUserContent(lastUser?.content);
 
       const inputMsg = new InputMessage({
         chat_id: input.threadId,
-        model: model,
+        model: this.model,
         user_input: text,
         image_paths: imagePaths.length > 0 ? imagePaths : undefined,
+        attachments: attachments.length > 0 ? attachments : undefined,
         proj: this.project || new ProjectEntry(),
         send_options: {
           continueSession: false,
@@ -137,9 +144,6 @@ export class WailsAgent extends AbstractAgent {
         if (!cancelled) subscriber.error(err);
       });
 
-      // 3. Teardown: unwire the listener. Do not call StopMessage here:
-      // AG-UI also tears subscriptions down after normal completion, and
-      // treating every teardown as cancellation races with the mock stream.
       return () => {
         cancelled = true;
         off();
@@ -149,12 +153,55 @@ export class WailsAgent extends AbstractAgent {
   }
 }
 
+function normalizeUserContent(content: Message['content']): {
+  text: string;
+  imagePaths: string[];
+  attachments: AttachmentPayload[];
+} {
+  if (typeof content === 'string') {
+    return { text: content, imagePaths: [], attachments: [] };
+  }
+  if (!Array.isArray(content)) {
+    return { text: '', imagePaths: [], attachments: [] };
+  }
+
+  const textParts: string[] = [];
+  const imagePaths: string[] = [];
+  const attachments: AttachmentPayload[] = [];
+
+  for (const part of content as InputContent[]) {
+    if (part.type === 'text') {
+      textParts.push(part.text);
+      continue;
+    }
+
+    const payload = part as AttachmentPayload;
+    const metadata = payload.metadata && typeof payload.metadata === 'object'
+      ? payload.metadata
+      : undefined;
+    const maybePath = metadata?.path;
+
+    if (part.type === 'image' && typeof maybePath === 'string' && maybePath) {
+      imagePaths.push(maybePath);
+      continue;
+    }
+
+    if (payload.source) {
+      attachments.push({ ...payload, metadata });
+    }
+  }
+
+  return {
+    text: textParts.join('\n'),
+    imagePaths,
+    attachments,
+  };
+}
+
 /**
  * Decode the raw payload Wails delivers. The backend pre-marshals events as
- * `json.RawMessage`, so we can receive either:
- *   - an already-parsed object (Wails decodes JSON automatically), OR
- *   - a JSON string (older Wails behaviour).
- * Both cases are normalized to `BaseEvent`.
+ * `json.RawMessage`, so Wails may deliver either a parsed object or a JSON
+ * string depending on runtime behaviour.
  */
 function decodeEvent(raw: unknown): BaseEvent | null {
   if (raw == null) return null;

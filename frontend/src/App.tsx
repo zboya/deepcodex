@@ -1,11 +1,13 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
+import { CopilotKitProvider } from '@copilotkit/react-core/v2';
+import '@copilotkit/react-core/v2/styles.css';
 import './App.css';
 import Sidebar from './components/Sidebar';
 import MainContent from './components/MainContent';
 import SettingsPage from './components/SettingsPage';
 import PluginsPage from './components/PluginsPage';
 import SearchModal from './components/SearchModal';
-import { ChatItem, ChatMessage, Project } from './types';
+import { ChatItem, Project } from './types';
 import {
   ListProjects,
   AddProject,
@@ -19,28 +21,25 @@ import { WailsAgent } from './agui/WailsAgent';
 import { ProjectEntry } from '../bindings/github.com/zboya/deepcodex/app/models';
 import type { Message as AGUIMessage } from '@ag-ui/core';
 
+const AGENT_ID = 'deepcodex';
+
 function App() {
   const [projects, setProjects] = useState<Project[]>([]);
-  // key = projectId → session list
   const [projectSessions, setProjectSessions] = useState<Record<string, ChatItem[]>>({});
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [isStreaming, setIsStreaming] = useState(false);
+  const [initialMessages, setInitialMessages] = useState<AGUIMessage[]>([]);
 
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+  const [selectedModel, setSelectedModel] = useState('');
 
-  // 当前视图: chat | settings | plugins
   const [view, setView] = useState<'chat' | 'settings' | 'plugins'>('chat');
   const [showSearch, setShowSearch] = useState(false);
-
-  // ─── 初始化 ─────────────────────────────────────────────────────────────────
 
   useEffect(() => {
     loadProjects();
   }, []);
 
-  // 全局拦截链接点击：统一通过系统浏览器打开外链，
-  // 避免 macOS 下 Wails WebView 的 openWebViewWindow 因 nil title 崩溃。
+  // 全局拦截链接点击：统一通过系统浏览器打开外链，避免 Wails WebView 新窗口崩溃。
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       const target = e.target as HTMLElement | null;
@@ -48,14 +47,11 @@ function App() {
       const anchor = target.closest('a') as HTMLAnchorElement | null;
       if (!anchor) return;
       const href = anchor.getAttribute('href') || '';
-      if (!href) return;
-      // 只拦截 http(s) 外链；忽略锚点、相对路径、javascript: 等
       if (!/^https?:\/\//i.test(href)) return;
       e.preventDefault();
       e.stopPropagation();
       OpenBrowserWindow(href);
     };
-    // 使用 capture 阶段，先于任何组件自带的 onClick 处理，避免冒泡到原生 WebKit 触发新窗口
     document.addEventListener('click', handler, true);
     document.addEventListener('auxclick', handler, true);
     return () => {
@@ -72,8 +68,6 @@ function App() {
       console.error('[loadProjects]', err);
     }
   };
-
-  // ─── 项目管理 ────────────────────────────────────────────────────────────────
 
   const handleAddProject = useCallback(async () => {
     try {
@@ -98,15 +92,13 @@ function App() {
       if (activeProjectId === id) {
         setActiveProjectId(null);
         setActiveChatId(null);
-        setMessages([]);
+        setInitialMessages([]);
       }
       await loadProjects();
     } catch (err) {
       console.error('[DeleteProject]', err);
     }
   }, [activeProjectId]);
-
-  // ─── 会话管理 ────────────────────────────────────────────────────────────────
 
   const handleLoadSessions = useCallback(async (projectId: string) => {
     try {
@@ -122,10 +114,9 @@ function App() {
 
   const handleSelectProject = useCallback((id: string) => {
     setActiveProjectId(id);
-    // 若切换项目，清空当前消息并起新会话
     if (id !== activeProjectId) {
       setActiveChatId(`chat-${Date.now()}`);
-      setMessages([]);
+      setInitialMessages([]);
     } else if (!activeChatId) {
       setActiveChatId(`chat-${Date.now()}`);
     }
@@ -134,126 +125,61 @@ function App() {
   const handleSelectChat = useCallback(async (projectId: string, chatId: string) => {
     setActiveProjectId(projectId);
     setActiveChatId(chatId);
-    // 加载该会话的历史消息
     try {
       const msgs = await GetSessionMessages(projectId, chatId);
-      const chatMsgs: ChatMessage[] = (msgs as any[]).map((m) => ({
-        id: m.id,
-        role: m.role as 'user' | 'assistant',
-        content: m.content,
-        time: m.time,
-      }));
-      setMessages(chatMsgs);
+      setInitialMessages((msgs as any[])
+        .filter((m) => m.role === 'user' || m.role === 'assistant')
+        .map((m) => ({
+          id: m.id,
+          role: m.role,
+          content: m.content,
+        })) as AGUIMessage[]);
     } catch (err) {
       console.error('[GetSessionMessages]', err);
-      setMessages([]);
+      setInitialMessages([]);
     }
   }, []);
 
   const handleNewChat = () => {
     setActiveChatId(`chat-${Date.now()}`);
-    setMessages([]);
+    setInitialMessages([]);
   };
 
   const handleNewSessionForProject = (projectId: string) => {
     setActiveProjectId(projectId);
     setActiveChatId(`chat-${Date.now()}`);
-    setMessages([]);
+    setInitialMessages([]);
   };
 
-  // ─── AG-UI Agent 单例 ─────────────────────────────────────────────────────
-
-  // WailsAgent 在切换 project / chat 时重新创建（threadId 绑定到 chatId）
-  const agentRef = useRef<WailsAgent | null>(null);
-
-  useEffect(() => {
-    const threadId = activeChatId || `default-${Date.now()}`;
-    const proj = projects.find((p) => p.id === activeProjectId) ?? null;
-    const agent = new WailsAgent({
-      projectId: activeProjectId || '',
-      project: proj ? new ProjectEntry({ id: proj.id, name: proj.name, path: proj.path, createdAt: proj.createdAt || 0 }) : null,
-      threadId,
-      initialMessages: chatMessagesToAGUI(messages),
-    });
-
-    // 监听 AG-UI 的标准 messages 变化，把它映射回我们的 ChatMessage[]
-    const unsub = agent.subscribe({
-      onMessagesChanged: ({ messages: ms }) => {
-        setMessages(aguiMessagesToChat(ms as readonly AGUIMessage[]));
-      },
-      onRunFinishedEvent: () => {
-        setIsStreaming(false);
-      },
-      onRunErrorEvent: ({ event }) => {
-        console.error('[agui] RUN_ERROR', event);
-        setIsStreaming(false);
-      },
-    });
-
-    agentRef.current = agent;
-    return () => {
-      unsub.unsubscribe();
-      if (agentRef.current === agent) {
-        agentRef.current = null;
-      }
-    };
-    // 仅在 chat / project 切换时重建，messages 初始化只取一次
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeChatId, activeProjectId]);
-
-  // ─── 发消息 ──────────────────────────────────────────────────────────────────
-
-  const handleSendMessage = useCallback(
-    async (text: string, imagePaths: string[] = [], model: string = '') => {
-      if (isStreaming) return;
-      const agent = agentRef.current;
-      if (!agent) return;
-
-      // 把图片路径以 markdown 形式附加在用户文本后，便于在聊天气泡中展示，
-      // 与后端 persistTurn 写入会话文件时的格式保持一致。
-      let displayText = text;
-      if (imagePaths.length > 0) {
-        const refs = imagePaths.map((p) => `![image](${p})`).join('\n');
-        displayText = text ? `${text}\n${refs}` : refs;
-        // 透传给 WailsAgent，由 run() 时随 SendMessage 一并发送给后端
-        agent.pendingImagePaths = imagePaths;
-      }
-
-      // 设置本次发送使用的模型
-      agent.pendingModel = model;
-
-      // AG-UI 规范：在 runAgent 之前把用户消息推入 agent.messages
-      agent.addMessage({
-        id: `user-${Date.now()}`,
-        role: 'user',
-        content: displayText,
-      });
-      setIsStreaming(true);
-
-      try {
-        await agent.runAgent();
-        // 刷新会话列表
-        if (activeProjectId) {
-          handleLoadSessions(activeProjectId);
-        }
-      } catch (err) {
-        console.error('[runAgent error]', err);
-        setIsStreaming(false);
-      }
-    },
-    [isStreaming, activeProjectId, handleLoadSessions],
-  );
-
-  const handleStop = useCallback(() => {
-    agentRef.current?.abortRun();
-    setIsStreaming(false);
-  }, []);
-
-  // ─── 当前项目信息 ─────────────────────────────────────────────────────────────
-
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null;
+  const threadId = activeChatId || `chat-${Date.now()}`;
 
-  // ─── 渲染 ─────────────────────────────────────────────────────────────────────
+  const projectEntry = useMemo(() => {
+    if (!activeProject) return null;
+    return new ProjectEntry({
+      id: activeProject.id,
+      name: activeProject.name,
+      path: activeProject.path,
+      createdAt: activeProject.createdAt || 0,
+    });
+  }, [activeProject]);
+
+  const agent = useMemo(() => new WailsAgent({
+    agentId: AGENT_ID,
+    threadId,
+    projectId: activeProjectId || '',
+    project: projectEntry,
+    model: selectedModel,
+    initialMessages,
+  }), [threadId, activeProjectId, projectEntry, selectedModel, initialMessages]);
+
+  const agents = useMemo(() => ({ [AGENT_ID]: agent }), [agent]);
+
+  const handleRunFinished = useCallback(() => {
+    if (activeProjectId) {
+      handleLoadSessions(activeProjectId);
+    }
+  }, [activeProjectId, handleLoadSessions]);
 
   return (
     <div id="App" className="app-root">
@@ -299,18 +225,23 @@ function App() {
             onLoadSessions={handleLoadSessions}
             onNewSessionForProject={handleNewSessionForProject}
           />
-          <MainContent
-            messages={messages}
-            isStreaming={isStreaming}
-            activeProject={activeProject}
-            onSend={handleSendMessage}
-            onStop={handleStop}
-            onLinkClick={(url) => OpenBrowserWindow(url)}
-          />
+          <CopilotKitProvider
+            agents__unsafe_dev_only={agents}
+            onError={({ code, error, context }) => {
+              console.error('[copilotkit]', code, error, context);
+            }}
+          >
+            <MainContent
+              agentId={AGENT_ID}
+              threadId={threadId}
+              activeProject={activeProject}
+              onModelChange={setSelectedModel}
+              onRunFinished={handleRunFinished}
+            />
+          </CopilotKitProvider>
         </>
       )}
 
-      {/* 搜索弹窗：全局覆盖，不受视图影响 */}
       {showSearch && (
         <SearchModal
           projects={projects}
@@ -327,54 +258,3 @@ function App() {
 }
 
 export default App;
-
-// ─── AGUI ↔ ChatMessage 适配 ────────────────────────────────────────────────
-
-function chatMessagesToAGUI(msgs: ChatMessage[]): AGUIMessage[] {
-  return msgs.map((m) => ({
-    id: m.id,
-    role: m.role,
-    content: m.content,
-  })) as AGUIMessage[];
-}
-
-function aguiMessagesToChat(msgs: readonly AGUIMessage[]): ChatMessage[] {
-  const out: ChatMessage[] = [];
-  // First pass: collect all tool results indexed by toolCallId
-  const toolResults = new Map<string, string>();
-  for (const m of msgs) {
-    if ((m as any).role === 'tool') {
-      const toolCallId = (m as any).toolCallId;
-      const content = typeof m.content === 'string' ? m.content : '';
-      if (toolCallId) {
-        toolResults.set(toolCallId, content);
-      }
-    }
-  }
-  // Second pass: build chat messages with tool results attached
-  for (const m of msgs) {
-    if ((m as any).role === 'tool') continue;
-    if (m.role !== 'user' && m.role !== 'assistant') continue;
-    const content = typeof m.content === 'string' ? m.content : '';
-    const item: ChatMessage = {
-      id: m.id,
-      role: m.role,
-      content,
-      time: Date.now() / 1000,
-      streaming: false,
-    };
-    if (m.role === 'assistant') {
-      const tcs = (m as { toolCalls?: Array<{ id: string; function: { name: string; arguments: string } }> }).toolCalls;
-      if (tcs && tcs.length > 0) {
-        item.toolCalls = tcs.map((t) => ({
-          id: t.id,
-          name: t.function?.name ?? '',
-          args: t.function?.arguments ?? '',
-          result: toolResults.get(t.id),
-        }));
-      }
-    }
-    out.push(item);
-  }
-  return out;
-}

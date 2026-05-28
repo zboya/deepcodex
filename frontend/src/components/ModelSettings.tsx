@@ -273,8 +273,8 @@ const ModelSettings: React.FC = () => {
     setPullingModels(true);
     setPullError('');
     try {
-      const models = await ListProviderModels(editingOriginalName);
-      const ids = (models || []).map((m) => m.id).filter(Boolean);
+      const models = (await ListProviderModels(editingOriginalName)) as apiclient.ModelInfo[];
+      const ids = (models || []).map((m: apiclient.ModelInfo) => m.id).filter(Boolean);
       if (ids.length === 0) {
         setPullError('未拉取到模型 (检查 BaseURL / APIKey)');
       } else {

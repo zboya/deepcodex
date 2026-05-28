@@ -8,6 +8,7 @@ import {
   Settings,
 } from './Icons';
 import { ChatItem, Project } from '../types';
+import dcxLogo from '../assets/dcx-logo.png';
 
 // ─── 图标 ────────────────────────────────────────────────────────────────────
 
@@ -321,6 +322,12 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   return (
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
+      {/* 品牌区 */}
+      <div className="sidebar-brand">
+        <img src={dcxLogo} alt="DCX" className="sidebar-brand-logo" />
+        <span className="sidebar-brand-name">DeepCodex</span>
+      </div>
+
       {/* 主菜单 */}
       <nav className="side-nav">
         <button className="nav-item" onClick={onNewChat}>

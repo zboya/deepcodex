@@ -62,7 +62,7 @@ textarea {
 .side-nav {
   display: flex;
   flex-direction: column;
-  padding: 64px 8px 8px 8px; /* 顶部留出 macOS 原生红黄绿空间 */
+  padding: 4px 8px 8px 8px; /* 顶部不再留空，由 .sidebar-brand 顶住红黄绿区域 */
   -webkit-app-region: no-drag;
 }
 
@@ -2222,4 +2222,167 @@ textarea {
   text-align: center;
   font-size: 13px;
   color: #555;
+}
+
+/* ===== CopilotKit 官方聊天适配 ===== */
+.copilot-main {
+  overflow: hidden;
+}
+
+.copilot-model-bar {
+  position: absolute;
+  top: 14px;
+  left: 20px;
+  z-index: 20;
+  -webkit-app-region: no-drag;
+}
+
+.copilot-model-picker .tool-chip {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.copilot-hero {
+  position: absolute;
+  top: 74px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(860px, calc(100% - 64px));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.copilot-hero .connector-row {
+  pointer-events: auto;
+  margin-top: 28px;
+}
+
+.copilot-chat-shell {
+  flex: 1;
+  min-height: 0;
+  padding: 58px 22px 18px;
+  -webkit-app-region: no-drag;
+}
+
+.copilot-chat-shell,
+.copilot-chat-shell > div,
+.copilot-chat-shell .copilotKitChat {
+  height: 100%;
+}
+
+.copilot-chat-shell .copilotKitChat {
+  background: transparent;
+  border: none;
+  color: #e6e6e6;
+}
+
+.copilot-chat-shell .copilotKitMessages {
+  padding-top: 72px;
+}
+
+.main-chat .copilot-chat-shell .copilotKitMessages {
+  padding-top: 8px;
+}
+
+.copilot-chat-shell .copilotKitMessagesContainer {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.copilot-chat-shell .copilotKitInput,
+.copilot-chat-shell textarea {
+  background: #353535;
+  color: #e6e6e6;
+}
+
+.copilot-chat-shell textarea::placeholder {
+  color: #777;
+}
+
+/* ===== Codex 风格主面板 ===== */
+.codex-main {
+  overflow: hidden;
+}
+
+/* 欢迎页：标题 + 输入框居中成组（视觉位置略偏下） */
+.codex-welcome {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 0 28px;
+  -webkit-app-region: no-drag;
+}
+
+.codex-welcome .hero-title {
+  font-size: 28px;
+  font-weight: 500;
+  color: #ededed;
+  margin: 0 0 28px 0;
+  text-align: center;
+}
+
+.codex-welcome-input {
+  width: 100%;
+}
+
+/* 会话页底部输入框 dock */
+.codex-input-dock {
+  width: 100%;
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 8px 28px 18px;
+  -webkit-app-region: no-drag;
+}
+
+/* 会话页：让消息列表与输入框上下排布 */
+.main-chat.codex-main {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ===== Sidebar 品牌区（顶部 logo + 名称） ===== */
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 56px 14px 10px 14px; /* 顶部 56px 让出 macOS 红黄绿空间 */
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+.sidebar-brand-logo {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04),
+              0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+.sidebar-brand-name {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: #ededed;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar.collapsed .sidebar-brand-name {
+  display: none;
+}
+
+.sidebar.collapsed .sidebar-brand {
+  justify-content: center;
+  padding: 56px 6px 10px 6px;
 }

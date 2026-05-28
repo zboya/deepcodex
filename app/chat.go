@@ -2,9 +2,11 @@ package app
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -29,12 +31,28 @@ type Chat struct {
 
 // ChatItem represents a chat session in the UI, with metadata for display.
 type InputMessage struct {
-	ChatID      string       `json:"chat_id,omitempty"`
-	Model       string       `json:"model,omitempty"`
-	UserInput   string       `json:"user_input,omitempty"`
-	ImagePaths  []string     `json:"image_paths,omitempty"`
-	Proj        ProjectEntry `json:"proj,omitempty"`
-	SendOptions SendOptions  `json:"send_options,omitempty"`
+	ChatID      string           `json:"chat_id,omitempty"`
+	Model       string           `json:"model,omitempty"`
+	UserInput   string           `json:"user_input,omitempty"`
+	ImagePaths  []string         `json:"image_paths,omitempty"`
+	Attachments []AGUIAttachment `json:"attachments,omitempty"`
+	Proj        ProjectEntry     `json:"proj,omitempty"`
+	SendOptions SendOptions      `json:"send_options,omitempty"`
+}
+
+// AGUIAttachment is the subset of CopilotKit / AG-UI input content parts that
+// deepcodex can forward to the harness. Today only images are converted into
+// multimodal LLM blocks; other modalities are ignored by buildInputMessage.
+type AGUIAttachment struct {
+	Type     string           `json:"type,omitempty"`
+	Source   AGUIInputSource  `json:"source,omitempty"`
+	Metadata map[string]any   `json:"metadata,omitempty"`
+}
+
+type AGUIInputSource struct {
+	Type     string `json:"type,omitempty"`
+	Value    string `json:"value,omitempty"`
+	MimeType string `json:"mimeType,omitempty"`
 }
 
 // ChatItem 对话条目
@@ -201,16 +219,14 @@ func (c *Chat) SendMessage(input *InputMessage) Message {
 	em := agui.New(c.ctx, input.ChatID)
 	em.RunStarted()
 
-	// 根据是否有图片选择不同的发送通道：
-	//   - 有图片：构建 InputMessage 并调用 ChatStreamWithMessage（多模态）
-	//   - 无图片：保持原 ChatStream（纯文本）
+	// 根据文本、图片路径和 CopilotKit AG-UI 附件构造 harness 输入消息。
 	var (
 		ch  <-chan apitypes.StreamEvent
 		err error
 	)
-	msg, buildErr := buildImageMessage(input.UserInput, input.ImagePaths)
+	msg, buildErr := buildInputMessage(input.UserInput, input.ImagePaths, input.Attachments)
 	if buildErr != nil {
-		errMsg := fmt.Sprintf("[错误] 读取图片失败: %v", buildErr)
+		errMsg := fmt.Sprintf("[错误] 读取附件失败: %v", buildErr)
 		em.RunError(errMsg)
 		return Message{
 			ID:      fmt.Sprintf("msg-%d", time.Now().UnixNano()),
@@ -448,19 +464,18 @@ func (c *Chat) restoreStoredSession(s session.StoredSession) error {
 	return nil
 }
 
-// buildImageMessage 构造一条包含若干图片 + 文本的多模态 user 消息。
-// 单张图片直接复用 apitypes.UserImageAndText；多张图片时按顺序加载并附在文本前。
-func buildImageMessage(text string, imagePaths []string) (apitypes.InputMessage, error) {
-	if len(imagePaths) == 0 {
+// buildInputMessage constructs a multimodal user message from legacy image
+// paths and CopilotKit/AG-UI attachment parts.
+func buildInputMessage(text string, imagePaths []string, attachments []AGUIAttachment) (apitypes.InputMessage, error) {
+	if len(imagePaths) == 0 && len(attachments) == 0 {
 		return apitypes.UserText(text), nil
 	}
-	if len(imagePaths) == 1 {
-		return apitypes.UserImageAndText(text, imagePaths[0])
-	}
 
-	// 多图：复用 UserImageAndText 解析逻辑（按顺序加载），把 image blocks 拼起来再补一段 text。
-	blocks := make([]apitypes.InputContentBlock, 0, len(imagePaths)+1)
+	blocks := make([]apitypes.InputContentBlock, 0, len(imagePaths)+len(attachments)+1)
 	for _, p := range imagePaths {
+		if p == "" {
+			continue
+		}
 		single, err := apitypes.UserImageAndText("", p)
 		if err != nil {
 			return apitypes.InputMessage{}, fmt.Errorf("loading image %s: %w", p, err)
@@ -471,8 +486,66 @@ func buildImageMessage(text string, imagePaths []string) (apitypes.InputMessage,
 			}
 		}
 	}
+
+	for _, att := range attachments {
+		if att.Type != "image" {
+			continue
+		}
+		block, err := attachmentToImageBlock(att)
+		if err != nil {
+			return apitypes.InputMessage{}, err
+		}
+		blocks = append(blocks, block)
+	}
+
 	if text != "" {
 		blocks = append(blocks, apitypes.InputContentBlock{Kind: "text", Text: text})
 	}
 	return apitypes.InputMessage{Role: "user", Content: blocks}, nil
+}
+
+func attachmentToImageBlock(att AGUIAttachment) (apitypes.InputContentBlock, error) {
+	source := att.Source
+	switch source.Type {
+	case "data":
+		mimeType := source.MimeType
+		if mimeType == "" {
+			mimeType = "image/png"
+		}
+		data := source.Value
+		if comma := strings.Index(data, ","); comma >= 0 && strings.Contains(data[:comma], "base64") {
+			data = data[comma+1:]
+		}
+		if _, err := base64.StdEncoding.DecodeString(data); err != nil {
+			return apitypes.InputContentBlock{}, fmt.Errorf("invalid base64 image attachment: %w", err)
+		}
+		return apitypes.InputContentBlock{
+			Kind: "image",
+			Source: &apitypes.ImageSource{
+				Type:      "base64",
+				MediaType: mimeType,
+				Data:      data,
+			},
+		}, nil
+	case "url":
+		path, _ := att.Metadata["path"].(string)
+		if path == "" && strings.HasPrefix(source.Value, "file://") {
+			path = strings.TrimPrefix(source.Value, "file://")
+		}
+		if path == "" {
+			return apitypes.InputContentBlock{}, fmt.Errorf("unsupported image URL attachment: %s", source.Value)
+		}
+		single, err := apitypes.UserImageAndText("", path)
+		if err != nil {
+			return apitypes.InputContentBlock{}, fmt.Errorf("loading image %s: %w", path, err)
+		}
+		for _, b := range single.Content {
+			if b.Kind == "image" {
+				return b, nil
+			}
+		}
+		return apitypes.InputContentBlock{}, fmt.Errorf("no image block built for %s", path)
+	default:
+		return apitypes.InputContentBlock{}, fmt.Errorf("unsupported image attachment source type: %s", source.Type)
+	}
 }

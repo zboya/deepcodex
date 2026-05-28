@@ -56,12 +56,12 @@ const InputArea: React.FC<InputAreaProps> = ({
     if (pickingRef.current) return;
     pickingRef.current = true;
     try {
-      const paths = (await SelectImageFiles()) || [];
+      const paths = ((await SelectImageFiles()) || []) as string[];
       if (!paths.length) return;
 
       // 1. 文本：把 @<path> 插入到光标处（每条独占一行更清晰）
       const ta = textareaRef.current;
-      const insertion = paths.map((p) => `@${p}`).join(' ');
+      const insertion = paths.map((p: string) => `@${p}`).join(' ');
       if (ta) {
         const start = ta.selectionStart ?? value.length;
         const end = ta.selectionEnd ?? value.length;
@@ -144,8 +144,8 @@ const InputArea: React.FC<InputAreaProps> = ({
 
   const refreshProviders = useCallback(async () => {
     try {
-      const list = await ListProviders();
-      setProviders((list || []).filter((p) => p.enabled));
+      const list = (await ListProviders()) as apiclient.ProviderConfig[];
+      setProviders((list || []).filter((p: apiclient.ProviderConfig) => p.enabled));
       const cfg = await GetProvidersConfig();
       setActiveProviderName(cfg?.activeProvider || '');
     } catch (e) {
@@ -299,7 +299,7 @@ const InputArea: React.FC<InputAreaProps> = ({
                             (未配置模型)
                           </div>
                         ) : (
-                          models.map((m) => {
+                          models.map((m: string) => {
                             const selected =
                               p.name === activeProvider && m === currentModel;
                             return (
