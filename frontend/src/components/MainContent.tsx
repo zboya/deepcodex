@@ -48,6 +48,17 @@ function getToolLabel(name: string): string {
 // ===== 工具调用详情组件 =====
 const ToolCallBlock: React.FC<{ toolCall: ChatToolCall }> = ({ toolCall }) => {
   const [expanded, setExpanded] = useState(false);
+  const [resultExpanded, setResultExpanded] = useState(false);
+  const MAX_RESULT_LINES = 10;
+
+  const truncatedResult = React.useMemo(() => {
+    if (!toolCall.result) return { text: '', truncated: false };
+    const lines = toolCall.result.split('\n');
+    if (lines.length > MAX_RESULT_LINES) {
+      return { text: lines.slice(0, MAX_RESULT_LINES).join('\n'), truncated: true, totalLines: lines.length };
+    }
+    return { text: toolCall.result, truncated: false };
+  }, [toolCall.result]);
 
   return (
     <div className="tool-call-block">
@@ -67,7 +78,17 @@ const ToolCallBlock: React.FC<{ toolCall: ChatToolCall }> = ({ toolCall }) => {
           {toolCall.result && (
             <>
               <div className="tool-call-result-label">输出结果</div>
-              <pre className="tool-call-result">{toolCall.result}</pre>
+              <pre className="tool-call-result">
+                {resultExpanded ? toolCall.result : truncatedResult.text}
+              </pre>
+              {truncatedResult.truncated && (
+                <button
+                  className="tool-call-expand-btn"
+                  onClick={() => setResultExpanded(!resultExpanded)}
+                >
+                  {resultExpanded ? '收起' : `展开全部 (${truncatedResult.totalLines} 行)`}
+                </button>
+              )}
             </>
           )}
         </div>
@@ -206,8 +227,8 @@ const MainContent: React.FC<MainContentProps> = ({ messages, isStreaming, active
                     <div className="msg-ai-text">
                       {group.messages.map((msg, idx) => (
                         <React.Fragment key={msg.id}>
-                          {/* 工具调用（在文本之前展示） */}
-                          {msg.toolCalls && msg.toolCalls.length > 0 && (
+                          {/* 工具调用（在文本之前展示），受"已处理"折叠控制 */}
+                          {thinkOpen && msg.toolCalls && msg.toolCalls.length > 0 && (
                             <div className="tool-calls-group">
                               {msg.toolCalls.map((tc) => (
                                 <ToolCallBlock key={tc.id} toolCall={tc} />
